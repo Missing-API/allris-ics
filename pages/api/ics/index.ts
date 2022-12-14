@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { Organizer } from "node-ical";
 import {
   getEventsFromIcsUrl,
   ICal,
@@ -7,7 +6,6 @@ import {
 import { getHtmlFromUrl } from "../../../src/allrisClient/getHtmlFromUrl";
 import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomingEventToIcsEvent";
 import { IcsEvent } from "../../../src/types/icsEvent";
-import { IncomingEvent } from "../../../src/types/incomingEvent";
 const ics = require("ics");
 
 /**
@@ -61,20 +59,21 @@ export default async function handler(
   await Promise.all(
     icsEvents.events.map(async (event: any) => {
       const htmlContent: string = event?.url
-        ? await getHtmlFromUrl(event?.url)
+        ? ((await getHtmlFromUrl(event?.url)) as string)
         : "";
       htmlContents[event.uid] = htmlContent;
       return Promise.resolve();
     })
   );
 
+  const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
     const enhancedEvent: IcsEvent = {
       ...mapIncomingEventToIcsEvent(event),
       description: htmlContents[event.uid],
       organizer: {
-        name: icsEvents.calendar["WR-CALNAME"],
+        name: icsEvents.calendar["WR-CALNAME"].toString() || "Allris",
       },
       categories: [icsEvents.calendar["WR-CALNAME"] || "Sitzung"],
       productId: icsEvents.calendar["WR-CALNAME"] || "Sitzung",
