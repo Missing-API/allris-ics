@@ -34,9 +34,9 @@ export const mapIncomingEventToIcsEvent = (input: IncomingEvent): IcsEvent => {
     url: input.url,
     method: "PUBLISH",
     organizer: {
-      name: input.organizerName || undefined,
+      name: input.organizerName || "",
     },
-    productId: input.organizerName || undefined,
+    productId: input.organizerName || "",
   };
 
   return icsEvent;

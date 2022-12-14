@@ -3,7 +3,7 @@ import ical from "node-ical";
 import { getUrlFromText } from "./getUrlFromText";
 
 export interface ICal {
-  calendar: object;
+  calendar: any;
   events: object[];
 }
 
