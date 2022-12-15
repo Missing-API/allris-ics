@@ -84,7 +84,7 @@ export default async function handler(
       description: htmlContents[event.uid],
       organizer: {
         name: organzizerName,
-        email: "no@allris.de",
+        email: "info@cc-egov.de",
       },
       categories: [icsEvents.calendar["WR-CALNAME"] || "Sitzung"],
       productId: productId,
