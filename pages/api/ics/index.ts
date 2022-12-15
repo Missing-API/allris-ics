@@ -67,6 +67,7 @@ export default async function handler(
   );
 
   const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
+
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
     const enhancedEvent: IcsEvent = {
@@ -85,8 +86,7 @@ export default async function handler(
   const icsBody = ics.createEvents(enhancedEvents);
 
   // set content type header
-  res.setHeader("Content-Type", "application/calendar; charset=utf8");
-  // res.setHeader("Content-Type", "text/plain; charset=utf8");
+  res.setHeader("Content-Type", "text/calendar; charset=utf8");
 
   // add cache header to allow cdn caching of responses
   const cacheMaxAge: string = process.env.CACHE_MAX_AGE || "86400"; // 1 day
