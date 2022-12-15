@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import slugify from "slugify";
 import {
   getEventsFromIcsUrl,
   ICal,
@@ -67,6 +68,14 @@ export default async function handler(
   );
 
   const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
+  const productId: string = slugify(
+    `${icsEvents.calendar["PRODID"]}-${icsEvents.calendar["WR-CALNAME"]}`,
+    {
+      lower: true,
+      strict: true,
+      trim: true,
+    }
+  );
 
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
@@ -74,10 +83,11 @@ export default async function handler(
       ...mapIncomingEventToIcsEvent(event),
       description: htmlContents[event.uid],
       organizer: {
-        name: icsEvents.calendar["WR-CALNAME"].toString() || "Allris",
+        name: organzizerName,
+        email: "no@allris.de",
       },
       categories: [icsEvents.calendar["WR-CALNAME"] || "Sitzung"],
-      productId: icsEvents.calendar["WR-CALNAME"] || "Sitzung",
+      productId: productId,
     };
     return enhancedEvent;
   });
