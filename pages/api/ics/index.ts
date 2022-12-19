@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import slugify from "slugify";
 import {
   getEventsFromIcsUrl,
   ICal,
@@ -67,16 +68,26 @@ export default async function handler(
   );
 
   const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
+  const productId: string = slugify(
+    `${icsEvents.calendar["PRODID"]}-${icsEvents.calendar["WR-CALNAME"]}`,
+    {
+      lower: true,
+      strict: true,
+      trim: true,
+    }
+  );
+
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
     const enhancedEvent: IcsEvent = {
       ...mapIncomingEventToIcsEvent(event),
       description: htmlContents[event.uid],
       organizer: {
-        name: icsEvents.calendar["WR-CALNAME"].toString() || "Allris",
+        name: organzizerName,
+        email: "info@cc-egov.de",
       },
       categories: [icsEvents.calendar["WR-CALNAME"] || "Sitzung"],
-      productId: icsEvents.calendar["WR-CALNAME"] || "Sitzung",
+      productId: productId,
     };
     return enhancedEvent;
   });
@@ -85,8 +96,7 @@ export default async function handler(
   const icsBody = ics.createEvents(enhancedEvents);
 
   // set content type header
-  res.setHeader("Content-Type", "application/calendar; charset=utf8");
-  // res.setHeader("Content-Type", "text/plain; charset=utf8");
+  res.setHeader("Content-Type", "text/calendar; charset=utf8");
 
   // add cache header to allow cdn caching of responses
   const cacheMaxAge: string = process.env.CACHE_MAX_AGE || "86400"; // 1 day
