@@ -8,6 +8,7 @@ import { getHtmlFromUrl } from "../../../src/allrisClient/getHtmlFromUrl";
 import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomingEventToIcsEvent";
 import { IcsEvent } from "../../../src/types/icsEvent";
 const ics = require("ics");
+const { convert } = require("html-to-text");
 
 /**
  * @swagger
@@ -22,7 +23,7 @@ const ics = require("ics");
  *       - application/json
  *     parameters:
  *       - name: feedurl
- *         description: URL of the incoming ICS feed, e.g. "https://www.sitzungsdienst-zuessow.de/bi2/si010_j.asp?selfaction=ws&template=ical&rss=128&sid=aaae7f67689eb066b64ced4a6484c0e2&showSitzung=j&GRA=99999999".
+ *         description: URL of the incoming ICS feed, e.g. "https://www.sitzungsdienst-zuessow.de/bi2/si010_j.asp?selfaction=ws&template=ical&rss=128&sid=aaae7f67689eb066b64ced4a6484c0e2&showSitzung=j&GRA=99999999", "https://usedomsued.sitzung-mv.de/public/ics/SiKalAbo.ics", or "https://eggesin.sitzung-mv.de/public/ics/SiKalAbo.ics"
  *         in: path
  *         required: true
  *         type: string
@@ -59,7 +60,8 @@ export default async function handler(
   let htmlContents: string[] = new Array();
   await Promise.all(
     icsEvents.events.map(async (event: any) => {
-      const htmlContent: string = event?.url
+      // only fetch details html, if url contains an event id
+      const htmlContent: string = event?.url?.includes("SILFDNR")
         ? ((await getHtmlFromUrl(event?.url)) as string)
         : "";
       htmlContents[event.uid] = htmlContent;
@@ -68,8 +70,15 @@ export default async function handler(
   );
 
   const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
+  const calendarProdId: string =
+    icsEvents.calendar["PRODID"] ||
+    icsEvents.calendar["prodid"] ||
+    organzizerName;
+  const calendarDescription: string =
+    icsEvents.calendar["WR-CALDESC"] || "Allris";
+
   const productId: string = slugify(
-    `${icsEvents.calendar["PRODID"]}-${icsEvents.calendar["WR-CALNAME"]}`,
+    `${calendarProdId}-${organzizerName}-${calendarDescription}`,
     {
       lower: true,
       strict: true,
@@ -81,7 +90,10 @@ export default async function handler(
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
     const enhancedEvent: IcsEvent = {
       ...mapIncomingEventToIcsEvent(event),
-      description: htmlContents[event.uid],
+      description: htmlContents[event.uid]
+        ? convert(htmlContents[event.uid])
+        : event.description,
+      htmlContent: htmlContents[event.uid],
       organizer: {
         name: organzizerName,
         email: "info@cc-egov.de",

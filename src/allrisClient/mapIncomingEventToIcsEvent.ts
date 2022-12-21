@@ -26,7 +26,6 @@ export const mapIncomingEventToIcsEvent = (input: IncomingEvent): IcsEvent => {
     location: input.location,
     title: input.summary,
     description: input.description,
-    // htmlContent: input.description,
     start: icsStartDate,
     startInputType: "local",
     end: icsEndDate,
