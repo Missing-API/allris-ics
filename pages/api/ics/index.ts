@@ -9,6 +9,7 @@ import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomin
 import { IcsEvent } from "../../../src/types/icsEvent";
 const ics = require("ics");
 const { convert } = require("html-to-text");
+const cheerio = require("cheerio");
 
 /**
  * @swagger
@@ -88,8 +89,12 @@ export default async function handler(
 
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
+    const $ = cheerio.load(htmlContents[event.uid]);
+    const locationFromHtml: string = $("#location").text();
+
     const enhancedEvent: IcsEvent = {
       ...mapIncomingEventToIcsEvent(event),
+      location: locationFromHtml || event.location,
       description: htmlContents[event.uid]
         ? convert(htmlContents[event.uid])
         : event.description,
