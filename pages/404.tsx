@@ -6,13 +6,13 @@ const Page401: NextPage = () => {
   return (
     <div className={styles.container}>
       <Head>
-        <title>401 Unauthorized</title>
+        <title>404 Not Found</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className={styles.main}>
-        <h1 className={styles.title}>401 Unauthorized</h1>
+        <h1 className={styles.title}>404 Not Found</h1>
         <p className={styles.description}>
-          Please provide a valid token to use this api.
+          The requested resource could not be found.
         </p>
       </main>
     </div>
