@@ -2,7 +2,8 @@
 const withTM = require('next-transpile-modules')([
   'swagger-ui-react',
   'react-syntax-highlighter',
-  'swagger-client'
+  'swagger-client',
+  '@schafevormfenster/data-text-mapper'
 ]);
 
 const nextConfig = {
