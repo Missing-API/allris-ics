@@ -5,6 +5,12 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "cleanUrls": true,
+  "functions": {
+    "pages/api/ics/index.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "headers": [
     {
       "source": "/api/(.*)",

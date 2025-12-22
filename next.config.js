@@ -9,6 +9,9 @@ const withTM = require('next-transpile-modules')([
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  experimental: {
+    serverComponentsExternalPackages: ['playwright-core', '@sparticuz/chromium'],
+  },
 }
 
 module.exports = withTM(nextConfig);

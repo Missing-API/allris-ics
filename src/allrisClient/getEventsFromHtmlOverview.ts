@@ -17,17 +17,39 @@ export interface OverviewEvent {
  * Example: https://eggesin.sitzung-mv.de/public/si018
  * 
  * Uses headless browser (Playwright) to handle JavaScript-rendered content
- * Handles pagination by fetching all pages in parallel
+ * Handles pagination sequentially using a single page (required for serverless)
  */
 export const getEventsFromHtmlOverview = async (
   url: string
 ): Promise<OverviewEvent[]> => {
+  const browserClient = getBrowserClient();
+  const browser = await browserClient.launch();
+  
   try {
-    const browserClient = getBrowserClient();
-    
-    // Fetch the first page
-    const data = await browserClient.fetchHtmlWithSelector(url, "table.dataTable", 30000);
-    const $ = cheerio.load(data);
+    const page = await browser.newPage();
+    // Navigate to the first page
+    await page.goto(url, {
+      waitUntil: "networkidle",
+      timeout: 30000,
+    });
+
+    // Wait for the table to load
+    await page.waitForSelector("table.dataTable", { timeout: 30000 });
+
+    // Dismiss cookie dialog if present
+    try {
+      const cookieButton = await page.$("#cookieDialog button, .cookie-message button");
+      if (cookieButton) {
+        await cookieButton.click();
+        await page.waitForTimeout(500);
+      }
+    } catch (e) {
+      // Cookie dialog not found or already dismissed, continue
+    }
+
+    // Get first page HTML
+    let data = await page.content();
+    let $ = cheerio.load(data);
     
     // Parse pagination info to determine total pages
     // Format: "Zeige 1 bis 25 von 119"
@@ -41,19 +63,27 @@ export const getEventsFromHtmlOverview = async (
     
     console.log(`Found ${totalItems} items across ${totalPages} pages (${itemsOnPage} per page)`);
 
-    // Fetch pages sequentially to avoid overwhelming the browser in serverless environments
-    // Note: Parallel fetching causes crashes with --single-process flag in Vercel/AWS Lambda
+    // Collect all pages HTML using the same page instance
     const allPagesData: string[] = [data];
     
-    for (let page = 2; page <= totalPages; page++) {
-      // For each additional page, click the pagination button sequentially
-      // Use a more specific selector: button in .goto span that contains the page number
-      const pageData = await browserClient.clickAndWaitForSelector(
-        url,
-        `.goto button span:text("${page}")`,
-        "table.dataTable",
-        30000
-      );
+    for (let pageNum = 2; pageNum <= totalPages; pageNum++) {
+      // Click the pagination button for the next page
+      const clickSelector = `.goto button span:text("${pageNum}")`;
+      
+      // Wait for the click target to appear
+      await page.waitForSelector(clickSelector, { timeout: 30000 });
+
+      // Click the element with force option to bypass overlays
+      await page.click(clickSelector, { force: true });
+
+      // Wait for the table to update
+      await page.waitForSelector("table.dataTable", { timeout: 30000 });
+
+      // Wait a bit for any dynamic content to load
+      await page.waitForTimeout(1000);
+
+      // Get the HTML content
+      const pageData = await page.content();
       allPagesData.push(pageData);
     }
 
@@ -150,12 +180,10 @@ export const getEventsFromHtmlOverview = async (
 
     return allEvents;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("error message: ", error.message);
-      throw error;
-    } else {
-      console.error("unexpected error: ", error);
-      throw error;
-    }
+    console.error("Error in getEventsFromHtmlOverview:", error);
+    throw error;
+  } finally {
+    // Always close the browser in serverless environments
+    await browser.close();
   }
 };
