@@ -41,24 +41,21 @@ export const getEventsFromHtmlOverview = async (
     
     console.log(`Found ${totalItems} items across ${totalPages} pages (${itemsOnPage} per page)`);
 
-    // Fetch all pages in parallel by opening multiple browser tabs
-    // Each tab will click its respective pagination button
-    const allPagesPromises: Promise<string>[] = [Promise.resolve(data)];
+    // Fetch pages sequentially to avoid overwhelming the browser in serverless environments
+    // Note: Parallel fetching causes crashes with --single-process flag in Vercel/AWS Lambda
+    const allPagesData: string[] = [data];
     
     for (let page = 2; page <= totalPages; page++) {
-      // For each additional page, click the pagination button
+      // For each additional page, click the pagination button sequentially
       // Use a more specific selector: button in .goto span that contains the page number
-      allPagesPromises.push(
-        browserClient.clickAndWaitForSelector(
-          url,
-          `.goto button span:text("${page}")`,
-          "table.dataTable",
-          30000
-        )
+      const pageData = await browserClient.clickAndWaitForSelector(
+        url,
+        `.goto button span:text("${page}")`,
+        "table.dataTable",
+        30000
       );
+      allPagesData.push(pageData);
     }
-
-    const allPagesData = await Promise.all(allPagesPromises);
 
     const allEvents: OverviewEvent[] = [];
 
