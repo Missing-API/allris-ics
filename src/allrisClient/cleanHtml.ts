@@ -109,6 +109,7 @@ export const cleanHtml = (html: string): string => {
   let newHtml: string = html;
   newHtml = trimHtml(newHtml);
   newHtml = removeExcessiveDots(newHtml);
+  newHtml = replaceSpaceInTopicNumbers(newHtml);
   newHtml = removeImageTags(newHtml);
   newHtml = removeForms(newHtml);
   newHtml = trimLinks(newHtml);
