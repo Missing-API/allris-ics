@@ -11,22 +11,30 @@ export class BrowserClient {
 
   /**
    * Launch browser instance
-   * Uses @sparticuz/chromium which works in both local and serverless environments
+   * Uses @sparticuz/chromium for serverless, local Chromium for development
    */
   async launch(): Promise<Browser> {
     if (this.browser) {
       return this.browser;
     }
 
-    // Get the executable path from @sparticuz/chromium
-    const executablePath = await chromium.executablePath();
+    try {
+      // Try to get executable path from @sparticuz/chromium (serverless)
+      const executablePath = await chromium.executablePath();
 
-    // Launch Chromium with the executable path
-    this.browser = await playwright.launch({
-      args: chromium.args,
-      executablePath: executablePath,
-      headless: true,
-    });
+      // Launch Chromium with the executable path from @sparticuz/chromium
+      this.browser = await playwright.launch({
+        args: chromium.args,
+        executablePath: executablePath,
+        headless: true,
+      });
+    } catch (error) {
+      // Fallback to local Chromium for development
+      console.log("Using local Chromium for development");
+      this.browser = await playwright.launch({
+        headless: true,
+      });
+    }
 
     return this.browser;
   }
