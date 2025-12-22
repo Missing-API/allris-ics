@@ -5,6 +5,7 @@ import {
   ICal,
 } from "../../../src/allrisClient/getEventsFromIcsUrl";
 import { getHtmlFromUrl } from "../../../src/allrisClient/getHtmlFromUrl";
+import { getEventsFromHtmlOverview, OverviewEvent } from "../../../src/allrisClient/getEventsFromHtmlOverview";
 import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomingEventToIcsEvent";
 import { IcsEvent } from "../../../src/types/icsEvent";
 import { htmlToData } from "@schafevormfenster/data-text-mapper/src/htmlToData";
@@ -14,10 +15,10 @@ const cheerio = require("cheerio");
 
 /**
  * @swagger
- * /api/ics/?feedurl={feedurl}:
+ * /api/ics/?feedurl={feedurl}&htmloverviewurl={htmloverviewurl}:
  *   get:
  *     summary: Returns an enhanced allris ics feed.
- *     description: Enhance an existing allris ics feed by adding content from details links.
+ *     description: Enhance an existing allris ics feed by adding content from details links, or generate a feed from an HTML overview page.
  *     tags:
  *       - ICS
  *       - Allris
@@ -27,7 +28,12 @@ const cheerio = require("cheerio");
  *       - name: feedurl
  *         description: URL of the incoming ICS feed, e.g. "https://www.sitzungsdienst-zuessow.de/bi2/si010_j.asp?selfaction=ws&template=ical&rss=128&sid=aaae7f67689eb066b64ced4a6484c0e2&showSitzung=j&GRA=99999999", "https://usedomsued.sitzung-mv.de/public/ics/SiKalAbo.ics", or "https://eggesin.sitzung-mv.de/public/ics/SiKalAbo.ics"
  *         in: path
- *         required: true
+ *         required: false
+ *         type: string
+ *       - name: htmloverviewurl
+ *         description: URL of an Allris HTML overview page, e.g. "https://eggesin.sitzung-mv.de/public/si018"
+ *         in: path
+ *         required: false
  *         type: string
  *     responses:
  *       200:
@@ -37,31 +43,70 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<any>
 ) {
-  const { feedurl } = req.query;
+  const { feedurl, htmloverviewurl } = req.query;
 
   // TODO: check auth header by middleware
 
-  if (!feedurl)
+  if (!feedurl && !htmloverviewurl)
     return res
       .status(400)
       .end(
-        "Missing feedurl parameter. Please provide an feedurl as url encoded string."
+        "Missing feedurl or htmloverviewurl parameter. Please provide either parameter as url encoded string."
       );
 
-  if (feedurl.length < 10)
+  if (feedurl && (feedurl as string).length < 10)
     return res
       .status(400)
       .end(
         "Invalid feedurl parameter. Please provide an feedurl as url encoded string with some more characters."
       );
 
-  // get events from feed
-  const icsEvents: ICal = await getEventsFromIcsUrl(feedurl as string);
+  if (htmloverviewurl && (htmloverviewurl as string).length < 10)
+    return res
+      .status(400)
+      .end(
+        "Invalid htmloverviewurl parameter. Please provide an htmloverviewurl as url encoded string with some more characters."
+      );
+
+  let events: any[] = [];
+  let organzizerName: string = "Allris";
+  let calendarProdId: string = "Allris";
+  let calendarDescription: string = "Allris";
+
+  // Handle HTML overview URL
+  if (htmloverviewurl) {
+    const overviewEvents: OverviewEvent[] = await getEventsFromHtmlOverview(htmloverviewurl as string);
+    events = overviewEvents.map((event) => ({
+      uid: event.uid,
+      summary: event.summary,
+      start: event.start,
+      end: event.end,
+      url: event.url,
+      location: event.location,
+      description: event.description,
+    }));
+    
+    // Extract organizer name from URL if possible
+    try {
+      const urlObj = new URL(htmloverviewurl as string);
+      organzizerName = urlObj.hostname.split('.')[0];
+    } catch (e) {
+      organzizerName = "Allris";
+    }
+  } 
+  // Handle ICS feed URL
+  else if (feedurl) {
+    const icsEvents: ICal = await getEventsFromIcsUrl(feedurl as string);
+    events = icsEvents.events;
+    organzizerName = icsEvents.calendar["WR-CALNAME"] || "Allris";
+    calendarProdId = icsEvents.calendar["PRODID"] || icsEvents.calendar["prodid"] || organzizerName;
+    calendarDescription = icsEvents.calendar["WR-CALDESC"] || "Allris";
+  }
 
   // get html content for each event (in parallel to speed it up)
   let htmlContents: any[] = new Array();
   await Promise.all(
-    icsEvents.events.map(async (event: any) => {
+    events.map(async (event: any) => {
       // only fetch details html, if url contains an event id
       const htmlResult = event?.url?.includes("SILFDNR")
         ? await getHtmlFromUrl(event?.url)
@@ -70,14 +115,6 @@ export default async function handler(
       return Promise.resolve();
     })
   );
-
-  const organzizerName: string = icsEvents.calendar["WR-CALNAME"] || "Allris";
-  const calendarProdId: string =
-    icsEvents.calendar["PRODID"] ||
-    icsEvents.calendar["prodid"] ||
-    organzizerName;
-  const calendarDescription: string =
-    icsEvents.calendar["WR-CALDESC"] || "Allris";
 
   const productId: string = slugify(
     `${calendarProdId}-${organzizerName}-${calendarDescription}`,
@@ -89,7 +126,7 @@ export default async function handler(
   );
 
   // add html content to events
-  const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
+  const enhancedEvents: IcsEvent[] = events.map((event: any) => {
     const htmlResult = htmlContents[event.uid];
     const $ = cheerio.load(htmlResult?.html || "");
     const locationFromHtml: string = $("#location").text();
@@ -131,7 +168,35 @@ export default async function handler(
     }
 
     const enhancedEvent: IcsEvent = {
-      ...mapIncomingEventToIcsEvent(event),
+      ...(feedurl ? mapIncomingEventToIcsEvent(event) : {
+        title: event.summary,
+        start: event.start ? [
+          event.start.getFullYear(),
+          event.start.getMonth() + 1,
+          event.start.getDate(),
+          event.start.getHours(),
+          event.start.getMinutes(),
+        ] : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate(), 0, 0],
+        startInputType: "local" as const,
+        end: event.end ? [
+          event.end.getFullYear(),
+          event.end.getMonth() + 1,
+          event.end.getDate(),
+          event.end.getHours(),
+          event.end.getMinutes(),
+        ] : (event.start ? [
+          event.start.getFullYear(),
+          event.start.getMonth() + 1,
+          event.start.getDate(),
+          event.start.getHours() + 1,
+          event.start.getMinutes(),
+        ] : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate(), 1, 0]),
+        endInputType: "local" as const,
+        location: event.location || "",
+        url: event.url,
+        uid: event.uid,
+        method: "PUBLISH" as const,
+      }),
       title: titleFromHtml || event.summary,
       location: icsLocationFromHtml || locationFromHtml || event.location,
       description: plainTextDescription,
@@ -140,7 +205,7 @@ export default async function handler(
         name: organzizerName,
         email: "info@cc-egov.de",
       },
-      categories: [icsEvents.calendar["WR-CALNAME"] || "Sitzung"],
+      categories: [organzizerName || "Sitzung"],
       productId: productId,
     };
     return enhancedEvent;

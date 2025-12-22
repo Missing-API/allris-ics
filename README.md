@@ -25,15 +25,27 @@ Allris ICS feeds often contain minimal information. This service:
 
 ```
 GET /api/ics?feedurl={urlEncodedFeedUrl}
+GET /api/ics?htmloverviewurl={urlEncodedHtmlUrl}
 ```
 
 **Parameters:**
-- `feedurl` (required): URL-encoded Allris ICS feed URL
+- `feedurl` (optional): URL-encoded Allris ICS feed URL
+- `htmloverviewurl` (optional): URL-encoded Allris HTML overview page URL (e.g., `https://eggesin.sitzung-mv.de/public/si018`)
 
-**Example:**
+Note: Provide either `feedurl` or `htmloverviewurl`, not both.
+
+**Examples:**
 ```bash
+# Using ICS feed
 curl "http://localhost:3050/api/ics?feedurl=https%3A%2F%2Fzuessow.sitzung-mv.de%2Fpublic%2Fics%2FSiKalAbo.ics"
+
+# Using HTML overview page (requires headless browser)
+curl "http://localhost:3050/api/ics?htmloverviewurl=https%3A%2F%2Feggesin.sitzung-mv.de%2Fpublic%2Fsi018"
 ```
+
+### HTML Overview Pages
+
+The `htmloverviewurl` parameter uses a headless browser (Playwright) to handle JavaScript-rendered content. This is compatible with serverless environments like Vercel and AWS Lambda.
 
 ### Development
 
