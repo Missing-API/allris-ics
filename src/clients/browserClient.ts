@@ -14,8 +14,19 @@ export class BrowserClient {
    * Uses @sparticuz/chromium for serverless, local Chromium for development
    */
   async launch(): Promise<Browser> {
-    if (this.browser) {
+    // Check if existing browser is still connected
+    if (this.browser && this.browser.isConnected()) {
       return this.browser;
+    }
+
+    // Clean up disconnected browser
+    if (this.browser) {
+      try {
+        await this.browser.close();
+      } catch (e) {
+        // Ignore errors when closing disconnected browser
+      }
+      this.browser = null;
     }
 
     try {
@@ -157,11 +168,13 @@ export class BrowserClient {
   }
 }
 
-// Singleton instance for reuse across requests
+// Singleton instance for reuse within a single request
+// In serverless, this will be created per function invocation
 let browserClientInstance: BrowserClient | null = null;
 
 /**
  * Get or create browser client instance
+ * Note: In serverless environments, this creates a new instance per invocation
  */
 export function getBrowserClient(): BrowserClient {
   if (!browserClientInstance) {
@@ -171,7 +184,7 @@ export function getBrowserClient(): BrowserClient {
 }
 
 /**
- * Clean up browser client (call this when shutting down)
+ * Clean up browser client (call this at the end of each request in serverless)
  */
 export async function closeBrowserClient(): Promise<void> {
   if (browserClientInstance) {
