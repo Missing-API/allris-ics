@@ -7,8 +7,9 @@ import {
 import { getHtmlFromUrl } from "../../../src/allrisClient/getHtmlFromUrl";
 import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomingEventToIcsEvent";
 import { IcsEvent } from "../../../src/types/icsEvent";
+import { htmlToData } from "@schafevormfenster/data-text-mapper/src/htmlToData";
+import { dataToText } from "@schafevormfenster/data-text-mapper/src/dataToText";
 const ics = require("ics");
-const { convert } = require("html-to-text");
 const cheerio = require("cheerio");
 
 /**
@@ -58,14 +59,14 @@ export default async function handler(
   const icsEvents: ICal = await getEventsFromIcsUrl(feedurl as string);
 
   // get html content for each event (in parallel to speed it up)
-  let htmlContents: string[] = new Array();
+  let htmlContents: any[] = new Array();
   await Promise.all(
     icsEvents.events.map(async (event: any) => {
       // only fetch details html, if url contains an event id
-      const htmlContent: string = event?.url?.includes("SILFDNR")
-        ? ((await getHtmlFromUrl(event?.url)) as string)
-        : "";
-      htmlContents[event.uid] = htmlContent;
+      const htmlResult = event?.url?.includes("SILFDNR")
+        ? await getHtmlFromUrl(event?.url)
+        : null;
+      htmlContents[event.uid] = htmlResult;
       return Promise.resolve();
     })
   );
@@ -89,16 +90,52 @@ export default async function handler(
 
   // add html content to events
   const enhancedEvents: IcsEvent[] = icsEvents.events.map((event: any) => {
-    const $ = cheerio.load(htmlContents[event.uid]);
+    const htmlResult = htmlContents[event.uid];
+    const $ = cheerio.load(htmlResult?.html || "");
     const locationFromHtml: string = $("#location").text();
+    const titleFromHtml: string = htmlResult?.title || "";
+    const icsLocationFromHtml: string = htmlResult?.location || "";
+
+    // Convert HTML to text by extracting text content from each element
+    let plainTextDescription = event.description;
+    if (htmlResult?.html) {
+      const $desc = cheerio.load(htmlResult.html);
+      const textData = htmlToData(htmlResult.html);
+      if (textData) {
+        // Extract text from the description HTML with proper formatting
+        let descText = "";
+        
+        // Process location
+        const location = $desc("#location").text().trim();
+        if (location) {
+          descText += location + "\n\n";
+        }
+        
+        // Process table rows with proper line breaks
+        $desc("table tr").each((i, row) => {
+          const cells = $desc(row).find("td");
+          if (cells.length === 1 && $desc(cells[0]).attr("colspan")) {
+            // Section header
+            descText += "\n" + $desc(cells[0]).text().trim() + "\n";
+          } else if (cells.length === 2) {
+            // Topic row: "Ö 1" + "Description"
+            const topicNum = $desc(cells[0]).text().trim();
+            const topicDesc = $desc(cells[1]).text().trim();
+            descText += topicNum + " " + topicDesc + "\n";
+          }
+        });
+        
+        textData.description = descText.trim();
+        plainTextDescription = dataToText(textData);
+      }
+    }
 
     const enhancedEvent: IcsEvent = {
       ...mapIncomingEventToIcsEvent(event),
-      location: locationFromHtml || event.location,
-      description: htmlContents[event.uid]
-        ? convert(htmlContents[event.uid])
-        : event.description,
-      htmlContent: htmlContents[event.uid],
+      title: titleFromHtml || event.summary,
+      location: icsLocationFromHtml || locationFromHtml || event.location,
+      description: plainTextDescription,
+      htmlContent: htmlResult?.html || "",
       organizer: {
         name: organzizerName,
         email: "info@cc-egov.de",

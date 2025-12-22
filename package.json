@@ -1,6 +1,6 @@
 {
   "name": "allris-ics",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Middleware to enhance ics feeds coming from allris software.",
   "main": "index.js",
   "repository": {
@@ -24,18 +24,19 @@
     "test:ci": "jest --runInBand"
   },
   "engines": {
-    "node": "22.x"
+    "node": ">=22.x"
   },
   "dependencies": {
+    "@schafevormfenster/data-text-mapper": "^0.2.2",
     "axios": "^1.2.1",
     "cheerio": "^1.0.0-rc.12",
-    "html-to-text": "^9.0.3",
     "iconv": "^3.0.1",
     "ics": "https://github.com/schafevormfenster/ics.git",
     "next": "^13.0.6",
     "next-swagger-doc": "^0.3.6",
     "next-transpile-modules": "^10.0.0",
     "node-ical": "^0.15.3",
+    "re2": "^1.23.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "slugify": "^1.6.5",

@@ -10,6 +10,24 @@ export const trimHtml = (html: string): string => {
   return newHtml;
 };
 
+export const removeExcessiveDots = (html: string): string => {
+  // Replace 4 or more consecutive dots with exactly 3 dots
+  let newHtml: string = html.replaceAll(/\.{4,}/g, "...");
+  return newHtml;
+};
+
+export const replaceSpaceInTopicNumbers = (html: string): string => {
+  // Replace space in topic numbers like "Ö 8.6" or "N 7" with &nbsp;
+  let newHtml: string = html.replaceAll(/([ÖöNn]) (\d+\.?\d*)/g, "$1&nbsp;$2");
+  return newHtml;
+};
+
+export const removeImageTags = (html: string): string => {
+  // Remove all img tags
+  let newHtml: string = html.replaceAll(/<img[^>]*>/gi, "");
+  return newHtml;
+};
+
 export const removeForms = (html: string): string => {
   const newHtml = html.replaceAll(/<form\b[^>]*>(.*?)<\/form>/g, " ");
   return newHtml;
@@ -74,6 +92,9 @@ export const trimWrapperTags = (html: string): string => {
 export const cleanHtmlTable = (html: string): string => {
   let newHtml: string = html;
   newHtml = trimHtml(newHtml);
+  newHtml = removeExcessiveDots(newHtml);
+  newHtml = replaceSpaceInTopicNumbers(newHtml);
+  newHtml = removeImageTags(newHtml);
   newHtml = removeTagAttributes(newHtml);
   newHtml = removeForms(newHtml);
   newHtml = trimLinks(newHtml);
@@ -87,6 +108,8 @@ export const cleanHtmlTable = (html: string): string => {
 export const cleanHtml = (html: string): string => {
   let newHtml: string = html;
   newHtml = trimHtml(newHtml);
+  newHtml = removeExcessiveDots(newHtml);
+  newHtml = removeImageTags(newHtml);
   newHtml = removeForms(newHtml);
   newHtml = trimLinks(newHtml);
   newHtml = trimWrapperTags(newHtml);
