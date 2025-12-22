@@ -112,7 +112,7 @@ export default async function handler(
         }
         
         // Process table rows with proper line breaks
-        $desc("table tr").each((i, row) => {
+        $desc("table tr").each((i: number, row: any) => {
           const cells = $desc(row).find("td");
           if (cells.length === 1 && $desc(cells[0]).attr("colspan")) {
             // Section header
