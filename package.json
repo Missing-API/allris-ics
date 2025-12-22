@@ -1,7 +1,7 @@
 {
   "name": "allris-ics",
   "version": "1.2.0",
-  "description": "Middleware to enhance ics feeds coming from allris software.",
+  "description": "A middleware service that enhances ICS calendar feeds from Allris meeting management software by fetching detailed meeting information and formatting it for better readability.",
   "main": "index.js",
   "repository": {
     "type": "git",
