@@ -1,25 +1,30 @@
-import * as playwrightAWSLambda from "playwright-aws-lambda";
+import chromium from "@sparticuz/chromium";
+import { chromium as playwright } from "playwright-core";
 import { Browser, Page } from "playwright-core";
 
 /**
  * Browser client for serverless environments
- * Uses playwright-aws-lambda for compatibility with AWS Lambda and Vercel
+ * Uses @sparticuz/chromium for compatibility with Vercel and AWS Lambda
  */
 export class BrowserClient {
   private browser: Browser | null = null;
 
   /**
    * Launch browser instance
-   * Uses playwright-aws-lambda which works in both local and serverless environments
+   * Uses @sparticuz/chromium which works in both local and serverless environments
    */
   async launch(): Promise<Browser> {
     if (this.browser) {
       return this.browser;
     }
 
-    // Use playwright-aws-lambda for both local and serverless
-    // It automatically detects the environment and uses the appropriate browser
-    this.browser = await playwrightAWSLambda.launchChromium({
+    // Get the executable path from @sparticuz/chromium
+    const executablePath = await chromium.executablePath();
+
+    // Launch Chromium with the executable path
+    this.browser = await playwright.launch({
+      args: chromium.args,
+      executablePath: executablePath,
       headless: true,
     });
 

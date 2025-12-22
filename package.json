@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@schafevormfenster/data-text-mapper": "^0.2.2",
+    "@sparticuz/chromium": "^143.0.0",
     "axios": "^1.13.2",
     "cheerio": "^1.1.2",
     "iconv": "^3.0.1",
@@ -38,7 +39,6 @@
     "next-swagger-doc": "^0.3.6",
     "next-transpile-modules": "^10.0.1",
     "node-ical": "^0.15.3",
-    "playwright-aws-lambda": "^0.11.0",
     "playwright-core": "^1.57.0",
     "re2": "^1.23.0",
     "react": "^18.3.1",
