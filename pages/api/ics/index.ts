@@ -105,18 +105,50 @@ export default async function handler(
       calendarDescription = icsEvents.calendar["WR-CALDESC"] || "Allris";
     }
 
-    // get html content for each event (in parallel to speed it up)
+    // Helper function to delay execution
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Process events in batches with delays to avoid rate limiting
+    const batchSize = 7;
+    const delayBetweenBatches = 450; // 0.5 second
+    const delayBetweenRequests = 150; // 150ms between individual requests
+    
     let htmlContents: any[] = new Array();
-    await Promise.all(
-      events.map(async (event: any) => {
-        // only fetch details html, if url contains an event id
-        const htmlResult = event?.url?.includes("SILFDNR")
-          ? await getHtmlFromUrl(event?.url)
-          : null;
-        htmlContents[event.uid] = htmlResult;
-        return Promise.resolve();
-      })
-    );
+    const eventsToFetch = events.filter((event: any) => event?.url?.includes("SILFDNR"));
+    
+    // Extract referer URL from either htmloverviewurl or feedurl
+    let refererUrl: string | undefined;
+    if (htmloverviewurl) {
+      try {
+        const urlObj = new URL(htmloverviewurl as string);
+        refererUrl = `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+      } catch (e) {
+        refererUrl = undefined;
+      }
+    }
+    
+    for (let i = 0; i < eventsToFetch.length; i += batchSize) {
+      const batch = eventsToFetch.slice(i, i + batchSize);
+      
+      // Process batch sequentially with small delays
+      for (const event of batch) {
+        try {
+          const htmlResult = await getHtmlFromUrl(event.url, refererUrl);
+          htmlContents[event.uid] = htmlResult;
+        } catch (error) {
+          console.error(`Failed to fetch ${event.url}:`, error);
+          htmlContents[event.uid] = null;
+        }
+        
+        // Small delay between individual requests
+        await delay(delayBetweenRequests);
+      }
+      
+      // Longer delay between batches
+      if (i + batchSize < eventsToFetch.length) {
+        await delay(delayBetweenBatches);
+      }
+    }
 
     const productId: string = slugify(
       `${calendarProdId}-${organzizerName}-${calendarDescription}`,

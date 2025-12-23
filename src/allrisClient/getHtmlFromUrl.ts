@@ -18,14 +18,24 @@ export interface HtmlResult {
   location: string;
 }
 
-export const getHtmlFromUrl = async (url: string): Promise<HtmlResult | null> => {
+export const getHtmlFromUrl = async (url: string, referer?: string): Promise<HtmlResult | null> => {
   try {
+    // Extract base URL for Referer header
+    const urlObj = new URL(url);
+    const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+    
     // set options to properly decode iso-8859-1 from allris html
     const options: AxiosRequestConfig = {
       method: "GET",
       url: url,
       headers: {
-        Accept: "application/text",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": referer || baseUrl,
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
       },
       responseType: "text",
       responseEncoding: "utf8",
@@ -54,7 +64,13 @@ export const getHtmlFromUrl = async (url: string): Promise<HtmlResult | null> =>
         method: "GET",
         url: url,
         headers: {
-          Accept: "application/text",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+          "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Referer": referer || baseUrl,
+          "Sec-Fetch-Dest": "document",
+          "Sec-Fetch-Mode": "navigate",
+          "Sec-Fetch-Site": "same-origin",
         },
         responseType: "text",
         responseEncoding: "latin1",
