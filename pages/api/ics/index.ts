@@ -245,6 +245,21 @@ export default async function handler(
       return enhancedEvent;
     });
 
+    // Sort events by start date: earliest (closest to today) first, latest last
+    enhancedEvents.sort((a, b) => {
+      // Extract start dates - handle both array format and Date objects
+      const getStartTime = (event: IcsEvent): number => {
+        if (Array.isArray(event.start)) {
+          // Convert array format [year, month, day, hour, minute] to timestamp
+          const [year, month, day, hour = 0, minute = 0] = event.start;
+          return new Date(year, month - 1, day, hour, minute).getTime();
+        }
+        return 0;
+      };
+      
+      return getStartTime(a) - getStartTime(b);
+    });
+
     // create ics format
     const icsBody = ics.createEvents(enhancedEvents);
 

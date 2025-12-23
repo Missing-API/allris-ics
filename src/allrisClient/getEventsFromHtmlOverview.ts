@@ -47,6 +47,92 @@ export const getEventsFromHtmlOverview = async (
       // Cookie dialog not found or already dismissed, continue
     }
 
+    // Optional: Try to set date filters if available (yesterday to 90 days in future)
+    // Note: Not all Allris instances have date filters or they may be hidden/disabled
+    try {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 90);
+      
+      const formatDateISO = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`; // ISO format for type="date" inputs
+      };
+      
+      const formatDateGerman = (date: Date): string => {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`; // German format for type="text" inputs
+      };
+      
+      // Wait a bit for any dynamic content to load
+      await page.waitForTimeout(1000);
+      
+      // Check if date filter panel is collapsed and needs to be expanded
+      // Look for the expand link specifically for "Zeitraum" (time period) panel
+      const expandLink = await page.$('a[data-simpletooltip-text="Zeitraum einblenden"]');
+      if (expandLink) {
+        console.log('Date filter panel (Zeitraum) is collapsed, expanding...');
+        await expandLink.click();
+        
+        // Wait for the date inputs to become visible after expansion
+        try {
+          await page.waitForSelector('input[type="date"], input#beginDateField', { timeout: 3000, state: 'visible' });
+          await page.waitForTimeout(500);
+          console.log('Date filter panel expanded successfully');
+        } catch (e) {
+          console.log('Date inputs did not become visible after expanding panel:', e);
+        }
+      }
+      
+      // Try to find date input fields with multiple selector strategies
+      let beginDateInput = await page.$('input#beginDateField:visible, input[name*="beginDateField"]:visible');
+      let endDateInput = await page.$('input[name*="endDateField"]:visible');
+      
+      // If not found by ID/name, try to find all visible date inputs
+      if (!beginDateInput || !endDateInput) {
+        const dateInputs = await page.$$('input[type="date"]:visible');
+        console.log(`Found ${dateInputs.length} visible date inputs on page`);
+        if (dateInputs.length >= 2) {
+          beginDateInput = dateInputs[0];
+          endDateInput = dateInputs[1];
+        }
+      }
+      
+      if (beginDateInput && endDateInput) {
+        // Check input type to use correct format
+        const beginType = await beginDateInput.getAttribute('type');
+        const isDateType = beginType === 'date';
+        
+        const startDateStr = isDateType ? formatDateISO(yesterday) : formatDateGerman(yesterday);
+        const endDateStr = isDateType ? formatDateISO(futureDate) : formatDateGerman(futureDate);
+        
+        console.log(`Attempting to apply date filter: ${startDateStr} to ${endDateStr} (type=${beginType})`);
+        
+        // Fill dates
+        await beginDateInput.click();
+        await beginDateInput.fill(startDateStr);
+        await endDateInput.click();
+        await endDateInput.fill(endDateStr);
+        
+        // Trigger form submission - try pressing Enter on the end date field
+        await endDateInput.press('Enter');
+        
+        // Wait for table to update
+        await page.waitForTimeout(3000);
+        console.log('Date filter applied successfully');
+      } else {
+        console.log('Date filter inputs not available on this page');
+      }
+    } catch (e) {
+      console.log('Date filter not available or could not be applied:', e);
+      // Continue without filter - not all instances support it
+    }
+
     // Get first page HTML
     let data = await page.content();
     let $ = cheerio.load(data);
@@ -100,12 +186,12 @@ export const getEventsFromHtmlOverview = async (
         // Extract date and time from separate cells
         // Cell 0: Date (e.g., "Do., 26.02.2026")
         // Cell 1: Time (e.g., "19:00")
-        const dateText = $row.find("td").eq(0).text().trim().replace(/^[A-Za-z]+,?\s*/, ""); // Remove day name
+        const dateText = $row.find("td").eq(0).text().trim().replace(/^[A-Za-z.,\s]+/, ""); // Remove day name and any malformed prefixes
         const timeText = $row.find("td").eq(1).text().trim();
         
         let startDate: Date | null = null;
         const dateMatch = dateText.match(/(\d{2}\.\d{2}\.\d{4})/);
-        const timeMatch = timeText.match(/(\d{2}:\d{2})/);
+        const timeMatch = timeText.match(/(\d{1,2}:\d{2})/);
         
         if (dateMatch && timeMatch) {
           const [, dateStr] = dateMatch;
@@ -136,31 +222,58 @@ export const getEventsFromHtmlOverview = async (
         // Extract location if present (some instances don't have a location column)
         // Look for a cell that's not the Rang (ranking) column which contains percentages
         let location = "";
+        let koerperschaft = ""; // Organization/body name as fallback
         const cells = $row.find("td");
         if (cells.length >= 5) {
-          // Try to find location column by checking for non-percentage text in cells after title
+          // Try to find location and Körperschaft columns by checking data-title attribute
           for (let cellIndex = 3; cellIndex < cells.length; cellIndex++) {
             const cellText = cells.eq(cellIndex).text().trim();
             const dataTitle = cells.eq(cellIndex).attr("data-title");
+            
             // Skip empty cells, Rang column, and AN (Anwesenheit) column
-            if (cellText && 
-                !cellText.match(/^\d+%/) && 
-                dataTitle !== "Rang" && 
-                dataTitle !== "AN") {
+            if (!cellText || cellText.match(/^\d+%/)) {
+              continue;
+            }
+            
+            // Check for Körperschaft column
+            if (dataTitle === "Körperschaft" || dataTitle === "Gremium") {
+              koerperschaft = cellText;
+            } 
+            // Location column (but not Rang or AN)
+            else if (dataTitle !== "Rang" && dataTitle !== "AN" && !location) {
               location = cellText;
-              break;
             }
           }
         }
+        
+        // Use Körperschaft as fallback location if no detail link and no location found
+        if (!detailUrl && !location && koerperschaft) {
+          location = koerperschaft;
+        }
 
-        // Generate UID
-        const uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replace(/[^a-zA-Z0-9]/g, "")}`;
+        // Generate stable UID using SILFDNR if available
+        let uid: string;
+        if (detailUrl) {
+          // Extract SILFDNR from detail URL (e.g., SILFDNR=1001429)
+          const silfdnrMatch = detailUrl.match(/SILFDNR=(\d+)/);
+          if (silfdnrMatch) {
+            // Extract hostname and sanitize it for use in UID
+            const hostname = new URL(detailUrl).hostname.replace(/\./g, '-');
+            uid = `ALLRIS-${hostname}-${silfdnrMatch[1]}`;
+          } else {
+            // Fallback: use timestamp-based UID
+            uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replace(/[^a-zA-Z0-9]/g, "")}`;
+          }
+        } else {
+          // No detail URL, use timestamp-based UID
+          uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replace(/[^a-zA-Z0-9]/g, "")}`;
+        }
 
         // Determine URL and description
         const eventUrl = detailUrl || url;
         const description = detailUrl 
           ? "" 
-          : "Mehr Informationen folgen.";
+          : url; // For events without details, just provide the overview page URL
 
         if (summary && startDate) {
           allEvents.push({
