@@ -26,15 +26,30 @@ export const getEventsFromHtmlOverview = async (
   const browser = await browserClient.launch();
   
   try {
+    // Create page with resource-saving options for serverless
     const page = await browser.newPage();
+    
+    // Block unnecessary resources to save memory in serverless
+    // Only block images and media, keep fonts for proper rendering
+    await page.route('**/*', (route) => {
+      const resourceType = route.request().resourceType();
+      if (['image', 'media'].includes(resourceType)) {
+        route.abort().catch(() => route.continue());
+      } else {
+        route.continue();
+      }
+    });
+    
     // Navigate to the first page
+    // Use 'domcontentloaded' instead of 'networkidle' to reduce resource usage
     await page.goto(url, {
-      waitUntil: "networkidle",
-      timeout: 30000,
+      waitUntil: "domcontentloaded",
+      timeout: 20000,
     });
 
-    // Wait for the table to load
-    await page.waitForSelector("table.dataTable", { timeout: 30000 });
+    // Wait for the table to load (JavaScript rendered)
+    // Give it a bit more time since we're using domcontentloaded
+    await page.waitForSelector("table.dataTable", { timeout: 25000 });
 
     // Dismiss cookie dialog if present
     try {

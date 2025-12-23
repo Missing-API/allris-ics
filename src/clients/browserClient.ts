@@ -21,8 +21,17 @@ export class BrowserClient {
       const executablePath = await chromium.executablePath();
 
       // Launch Chromium with the executable path from @sparticuz/chromium
+      // Add resource-saving args for serverless environments
+      const serverlessArgs = [
+        ...chromium.args,
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process',
+        '--no-zygote',
+      ];
+      
       return await playwright.launch({
-        args: chromium.args,
+        args: serverlessArgs,
         executablePath: executablePath,
         headless: true,
       });

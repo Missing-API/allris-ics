@@ -7,7 +7,7 @@
   "cleanUrls": true,
   "functions": {
     "pages/api/ics/index.ts": {
-      "memory": 1024,
+      "memory": 3008,
       "maxDuration": 300
     }
   },

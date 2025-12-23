@@ -133,4 +133,72 @@ describe("getEventsFromHtmlOverview", () => {
     console.log(`Events with detail links: ${eventsWithDetails.length}/${events.length}`);
     expect(eventsWithDetails.length).toBeGreaterThan(0);
   }, 45000); // 45 second timeout for network request
+
+  it("should extract events from Kleinseenplatte HTML overview page", async () => {
+    const url = "https://kleinseenplatte.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Kleinseenplatte`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(kleinseenplatte-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Neverin HTML overview page", async () => {
+    const url = "https://neverin.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Neverin`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(neverin-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Stavenhagen HTML overview page", async () => {
+    const url = "https://stavenhagen.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Stavenhagen`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(stavenhagen-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Treptower Tollensewinkel HTML overview page", async () => {
+    const url = "https://altentreptow.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Treptower Tollensewinkel`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(altentreptow-sitzung-mv-de|Overview)-/);
+  }, 30000);
 });
