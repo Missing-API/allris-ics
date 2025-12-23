@@ -1,6 +1,6 @@
 {
   "name": "allris-ics",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "A middleware service that enhances ICS calendar feeds from Allris meeting management software by fetching detailed meeting information and formatting it for better readability.",
   "main": "index.js",
   "repository": {
