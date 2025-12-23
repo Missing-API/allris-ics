@@ -213,13 +213,42 @@ export const getEventsFromHtmlOverview = async (
           const [, timeStr] = timeMatch;
           const [day, month, year] = dateStr.split(".");
           const [hours, minutes] = timeStr.split(":");
-          startDate = new Date(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-            parseInt(hours),
-            parseInt(minutes)
+          
+          const y = parseInt(year);
+          const m = parseInt(month) - 1;
+          const d = parseInt(day);
+          const h = parseInt(hours);
+          const min = parseInt(minutes);
+
+          // Parse as Europe/Berlin time to handle timezone correctly
+          // 1. Create a date assuming the input time is UTC
+          const guess = new Date(Date.UTC(y, m, d, h, min));
+          
+          // 2. Get the time components of this moment in Europe/Berlin
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Europe/Berlin',
+            year: 'numeric', month: 'numeric', day: 'numeric',
+            hour: 'numeric', minute: 'numeric', second: 'numeric',
+            hour12: false
+          }).formatToParts(guess);
+          
+          const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+          
+          // 3. Reconstruct the "face value" time in Berlin as a UTC timestamp
+          const berlinAsUtc = Date.UTC(
+            getPart('year'),
+            getPart('month') - 1,
+            getPart('day'),
+            getPart('hour'),
+            getPart('minute'),
+            getPart('second')
           );
+          
+          // 4. Calculate the offset (Berlin Time - UTC Time)
+          const offset = berlinAsUtc - guess.getTime();
+          
+          // 5. Subtract the offset to get the correct UTC time
+          startDate = new Date(guess.getTime() - offset);
         }
 
         // Extract title and detail link from cell 2

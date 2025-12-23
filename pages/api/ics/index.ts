@@ -150,6 +150,25 @@ export default async function handler(
       }
     }
 
+    // Helper to convert Date to Berlin time array [year, month, day, hour, minute]
+    const toBerlinDateArray = (date: Date): [number, number, number, number, number] => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', hour12: false
+      }).formatToParts(date);
+      
+      const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+      
+      return [
+        getPart('year'),
+        getPart('month'),
+        getPart('day'),
+        getPart('hour'),
+        getPart('minute')
+      ];
+    };
+
     const productId: string = slugify(
       `${calendarProdId}-${organzizerName}-${calendarDescription}`,
       {
@@ -201,31 +220,34 @@ export default async function handler(
         }
       }
 
+      // Calculate start and end times in Berlin timezone
+      const startArray = event.start 
+        ? toBerlinDateArray(event.start)
+        : toBerlinDateArray(new Date());
+        
+      // Calculate end time (default to start + 1 hour if missing)
+      let endArray: [number, number, number, number, number];
+      if (event.end) {
+        endArray = toBerlinDateArray(event.end);
+      } else if (event.start) {
+        // Clone start date and add 1 hour
+        const endDate = new Date(event.start.getTime() + 60 * 60 * 1000);
+        endArray = toBerlinDateArray(endDate);
+      } else {
+        // Default end is now + 1 hour
+        const endDate = new Date(new Date().getTime() + 60 * 60 * 1000);
+        endArray = toBerlinDateArray(endDate);
+      }
+
       const enhancedEvent: IcsEvent = {
         ...(feedurl ? mapIncomingEventToIcsEvent(event) : {
           title: event.summary,
-          start: event.start ? [
-            event.start.getFullYear(),
-            event.start.getMonth() + 1,
-            event.start.getDate(),
-            event.start.getHours(),
-            event.start.getMinutes(),
-          ] : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate(), 0, 0],
+          start: startArray,
           startInputType: "local" as const,
-          end: event.end ? [
-            event.end.getFullYear(),
-            event.end.getMonth() + 1,
-            event.end.getDate(),
-            event.end.getHours(),
-            event.end.getMinutes(),
-          ] : (event.start ? [
-            event.start.getFullYear(),
-            event.start.getMonth() + 1,
-            event.start.getDate(),
-            event.start.getHours() + 1,
-            event.start.getMinutes(),
-          ] : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate(), 1, 0]),
+          startOutputType: "local" as const,
+          end: endArray,
           endInputType: "local" as const,
+          endOutputType: "local" as const,
           location: event.location || "",
           url: event.url,
           uid: event.uid,
@@ -251,6 +273,7 @@ export default async function handler(
       const getStartTime = (event: IcsEvent): number => {
         if (Array.isArray(event.start)) {
           // Convert array format [year, month, day, hour, minute] to timestamp
+          // Note: This treats the array as local time (Berlin), but for sorting relative order it's fine
           const [year, month, day, hour = 0, minute = 0] = event.start;
           return new Date(year, month - 1, day, hour, minute).getTime();
         }
@@ -262,6 +285,22 @@ export default async function handler(
 
     // create ics format
     const icsBody = ics.createEvents(enhancedEvents);
+    
+    // Post-process ICS to add Timezone info
+    // 1. Add X-WR-TIMEZONE to calendar properties
+    // 2. Add TZID to DTSTART and DTEND
+    let icsString = icsBody.value;
+    
+    if (icsString) {
+      // Add global timezone definition
+      icsString = icsString.replace('VERSION:2.0', 'VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin');
+      
+      // Add TZID to events
+      // Replace DTSTART: with DTSTART;TZID=Europe/Berlin:
+      icsString = icsString.replace(/DTSTART:/g, 'DTSTART;TZID=Europe/Berlin:');
+      // Replace DTEND: with DTEND;TZID=Europe/Berlin:
+      icsString = icsString.replace(/DTEND:/g, 'DTEND;TZID=Europe/Berlin:');
+    }
 
     // set content type header
     res.setHeader("Content-Type", "text/calendar; charset=utf8");
@@ -275,7 +314,7 @@ export default async function handler(
       `max-age=${cacheMaxAge}, s-maxage=${cacheMaxAge}, stale-while-revalidate=${cacheStaleWhileRevalidate}`
     );
 
-    res.status(200).send(icsBody.value);
+    res.status(200).send(icsString);
   } catch (error) {
     console.error("unexpected error: ", error);
     res.status(500).end("Internal server error");
