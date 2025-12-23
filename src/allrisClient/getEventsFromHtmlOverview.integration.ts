@@ -201,4 +201,123 @@ describe("getEventsFromHtmlOverview", () => {
     // Verify stable UID format
     expect(events[0].uid).toMatch(/^ALLRIS-(altentreptow-sitzung-mv-de|Overview)-/);
   }, 30000);
+
+  it("should extract events from Torgelow HTML overview page", async () => {
+    const url = "https://torgelow.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Torgelow`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(torgelow-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Usedom-Nord HTML overview page", async () => {
+    const url = "https://usedomnord.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Usedom-Nord`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(usedomnord-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Amt Demmin-Land HTML overview page", async () => {
+    const url = "https://amt-demmin-land.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Amt Demmin-Land`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(amt-demmin-land-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Neustrelitz HTML overview page", async () => {
+    const url = "https://neustrelitz.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Neustrelitz`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(neustrelitz-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Röbel-Müritz HTML overview page", async () => {
+    const url = "https://roebelmueritz.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Röbel-Müritz`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(roebelmueritz-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Amt SLW (Seenlandschaft Waren) HTML overview page", async () => {
+    const url = "https://amt-slw.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Amt SLW`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(amt-slw-sitzung-mv-de|Overview)-/);
+  }, 30000);
+
+  it("should extract events from Amt Stargarder Land HTML overview page", async () => {
+    const url = "https://amt-stargarder-land.sitzung-mv.de/public/si018";
+    
+    const events: OverviewEvent[] = await getEventsFromHtmlOverview(url);
+    
+    console.log(`Found ${events.length} events from Amt Stargarder Land`);
+    
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0]).toHaveProperty("uid");
+    expect(events[0]).toHaveProperty("summary");
+    expect(events[0]).toHaveProperty("start");
+    expect(events[0].start).toBeInstanceOf(Date);
+    
+    // Verify stable UID format
+    expect(events[0].uid).toMatch(/^ALLRIS-(amt-stargarder-land-sitzung-mv-de|Overview)-/);
+  }, 30000);
 });
