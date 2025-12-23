@@ -53,6 +53,11 @@ export const getEventsFromIcsUrl = async (icsUrl: string): Promise<ICal> => {
       calendar: calendarInfo,
       events: eventsArray,
     };
+
+    if (eventsArray.length === 0) {
+      console.warn(`No events found in ICS feed: ${icsUrl}`);
+    }
+
     return iCal;
   } catch (error) {
     if (axios.isAxiosError(error)) {

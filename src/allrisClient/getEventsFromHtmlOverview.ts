@@ -306,6 +306,10 @@ export const getEventsFromHtmlOverview = async (
 
     console.log(`Extracted ${allEvents.length} total events from ${allPagesData.length} pages`);
 
+    if (allEvents.length === 0) {
+      console.warn(`No events extracted from HTML overview page: ${url}`);
+    }
+
     return allEvents;
   } catch (error) {
     console.error("Error in getEventsFromHtmlOverview:", error);

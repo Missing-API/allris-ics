@@ -235,6 +235,16 @@ export const getHtmlFromUrl = async (url: string, referer?: string): Promise<Htm
       agendaTable || ""
     }</table></div>${pdfDocumentsHtml}<p class="taxonomy"><span class="p-category">#Gemeindeleben</span> <span class="p-scope">@Gemeinde</span></p><p class="link"><a class="u-url" href="${url}">${url}</a></p>`;
 
+    // Log warning if key data is missing
+    const missingData: string[] = [];
+    if (!title) missingData.push('title');
+    if (!icsLocation) missingData.push('location');
+    if (!agendaTable && !descriptionLocation) missingData.push('description/agenda');
+    
+    if (missingData.length > 0) {
+      console.warn(`Missing data from detail page (${missingData.join(', ')}): ${url}`);
+    }
+
     return {
       html: `<!DOCTYPE html><html><body>${htmlDescription}</body></html>`,
       title: cleanHtml(title || ""),
