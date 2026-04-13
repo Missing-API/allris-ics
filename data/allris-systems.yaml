@@ -1,0 +1,90 @@
+# Allris platform systems and their geographic context
+# Used by getLocationContextFromUrl.ts to enrich event location strings.
+#
+# domains:  Maps Allris platform domain suffixes to state and country.
+#           Any hostname ending in that domain inherits these values.
+#
+# systems:  Maps individual hostnames to their Landkreis (county).
+#           State and country are inherited from the matching domain entry.
+#           A system entry can also override state/country if needed.
+
+domains:
+  sitzung-mv.de:
+    state: Mecklenburg-Vorpommern
+    country: Germany
+  sitzung-online.de:
+    state: Mecklenburg-Vorpommern
+    country: Germany
+  # Add further Allris platform domains here as needed, e.g.:
+  # sitzung-bb.de:
+  #   state: Brandenburg
+  #   country: Germany
+
+systems:
+  altentreptow.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://altentreptow.sitzung-mv.de/public/si018
+
+  amt-demmin-land.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://amt-demmin-land.sitzung-mv.de/public/si018
+
+  amtneverin.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://amtneverin.sitzung-mv.de/public/si018
+
+  amt-slw.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://amt-slw.sitzung-mv.de/public/si018
+
+  amt-stargarder-land.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://amt-stargarder-land.sitzung-mv.de/public/si018
+
+  dargun.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://dargun.sitzung-mv.de/public/si018
+
+  demmin.sitzung-online.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://www.demmin.sitzung-online.de/bi/si010_e.asp
+
+  eggesin.sitzung-mv.de:
+    county: Vorpommern-Greifswald
+    publicUrl: https://eggesin.sitzung-mv.de/public/si018
+
+  kleinseenplatte.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://kleinseenplatte.sitzung-mv.de/public/si018
+
+  malchin.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://malchin.sitzung-mv.de/public/si018
+
+  neustrelitz.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://neustrelitz.sitzung-mv.de/public/si018
+
+  neverin.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://neverin.sitzung-mv.de/public/si018
+
+  roebelmueritz.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://roebelmueritz.sitzung-mv.de/public/si018
+
+  stavenhagen.sitzung-mv.de:
+    county: Mecklenburgische Seenplatte
+    publicUrl: https://stavenhagen.sitzung-mv.de/public/si018
+
+  torgelow.sitzung-mv.de:
+    county: Vorpommern-Greifswald
+    publicUrl: https://torgelow.sitzung-mv.de/public/si018
+
+  usedomnord.sitzung-mv.de:
+    county: Vorpommern-Greifswald
+    publicUrl: https://usedomnord.sitzung-mv.de/public/si018
+
+  zuessow.sitzung-mv.de:
+    county: Vorpommern-Greifswald
+    publicUrl: https://zuessow.sitzung-mv.de/public/si018

@@ -11,6 +11,9 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     serverComponentsExternalPackages: ['playwright-core', '@sparticuz/chromium'],
+    outputFileTracingIncludes: {
+      '/api/ics': ['./data/**/*'],
+    },
   },
 }
 

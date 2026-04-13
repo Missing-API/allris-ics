@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from "axios";
 import { getBrowserClient } from "../clients/browserClient";
+import { getLocationForOverviewEvent } from "./getLocationForOverviewEvent";
 const cheerio = require("cheerio");
 
 export interface OverviewEvent {
@@ -12,6 +13,164 @@ export interface OverviewEvent {
   description: string;
 }
 
+const parseBerlinLocalDateTime = (
+  year: number,
+  month: number,
+  day: number,
+  time: string
+): Date => {
+  const [hours, minutes] = time.split(":").map((value) => parseInt(value, 10));
+  const guess = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  }).formatToParts(guess);
+
+  const getPart = (type: string) =>
+    parseInt(parts.find((part) => part.type === type)?.value || "0", 10);
+
+  const berlinAsUtc = Date.UTC(
+    getPart("year"),
+    getPart("month") - 1,
+    getPart("day"),
+    getPart("hour"),
+    getPart("minute"),
+    getPart("second")
+  );
+
+  return new Date(guess.getTime() - (berlinAsUtc - guess.getTime()));
+};
+
+const getOverviewUid = (
+  detailUrl: string,
+  startDate: Date | null,
+  index: number,
+  summary: string
+): string => {
+  const silfdnrMatch = /SILFDNR=(\d+)/.exec(detailUrl);
+  if (silfdnrMatch) {
+    const hostname = new URL(detailUrl).hostname.replace(/\./g, "-");
+    return `ALLRIS-${hostname}-${silfdnrMatch[1]}`;
+  }
+
+  return `ALLRIS-Overview-${startDate?.getTime() || index}-${summary
+    .substring(0, 20)
+    .replace(/[^a-zA-Z0-9]/g, "")}`;
+};
+
+const getEventsFromClassicHtmlOverview = async (
+  url: string
+): Promise<OverviewEvent[] | null> => {
+  const { hostname, pathname, protocol } = new URL(url);
+  if (!hostname.endsWith("sitzung-online.de") || !pathname.endsWith("si010_e.asp")) {
+    return null;
+  }
+
+  const options: AxiosRequestConfig = {
+    method: "GET",
+    url,
+    headers: {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      Referer: `${protocol}//${hostname}`,
+    },
+    responseType: "text",
+    responseEncoding: "latin1",
+    decompress: true,
+  };
+
+  const { data } = await axios.get<string>(url, options);
+  const $ = cheerio.load(data);
+  const metaDescription = $("meta[name=description]").attr("content") || "";
+  const fromValue =
+    $("input#kaldatvon").attr("value") || $("input[name='kaldatvon']").attr("value") || "";
+  const fromMatch = fromValue.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+
+  if (!metaDescription.includes("ALLRIS net Version 3.9") || !fromMatch) {
+    return null;
+  }
+
+  const [, , monthText, yearText] = fromMatch;
+  const month = parseInt(monthText, 10);
+  const year = parseInt(yearText, 10);
+  const events: OverviewEvent[] = [];
+  let currentDay: number | null = null;
+
+  $("table.tl1 tr").each((index: number, row: any) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 9) {
+      return;
+    }
+
+    const dayText = cells.eq(1).text().replace(/\D/g, "").trim();
+    if (dayText) {
+      currentDay = parseInt(dayText, 10);
+    }
+
+    if (!currentDay) {
+      return;
+    }
+
+    const timeText = cells.eq(2).text().replaceAll("\u00a0", " ").trim();
+    const titleLink = cells.eq(5).find("a[href*='to010.asp']").first();
+    const summary = titleLink.text().replaceAll(/\s+/g, " ").trim();
+    if (!summary) {
+      return;
+    }
+
+    const href = titleLink.attr("href");
+    if (!href) {
+      return;
+    }
+
+    const detailUrl = new URL(href, url).href;
+    const timeMatch = timeText.match(/(\d{1,2}:\d{2})(?:\s*-\s*(\d{1,2}:\d{2}))?/);
+    const start = timeMatch
+      ? parseBerlinLocalDateTime(year, month, currentDay, timeMatch[1])
+      : null;
+    let end: Date | null = null;
+    if (timeMatch?.[2]) {
+      end = parseBerlinLocalDateTime(year, month, currentDay, timeMatch[2]);
+    } else if (start) {
+      end = new Date(start.getTime() + 60 * 60 * 1000);
+    }
+
+    const rawLocation = cells
+      .last()
+      .text()
+      .replaceAll("\u00a0", " ")
+      .replaceAll(/\s+/g, " ")
+      .trim();
+    const location = getLocationForOverviewEvent({
+      summary,
+      detailUrl,
+      location: rawLocation,
+      koerperschaft: "",
+      overviewUrl: url,
+    });
+
+    events.push({
+      uid: getOverviewUid(detailUrl, start, index, summary),
+      summary,
+      start,
+      end,
+      url: detailUrl,
+      location,
+      description: "",
+    });
+  });
+
+  return events.length > 0 ? events : null;
+};
+
 /**
  * Extract events from Allris HTML overview page
  * Example: https://eggesin.sitzung-mv.de/public/si018
@@ -22,6 +181,11 @@ export interface OverviewEvent {
 export const getEventsFromHtmlOverview = async (
   url: string
 ): Promise<OverviewEvent[]> => {
+  const classicEvents = await getEventsFromClassicHtmlOverview(url);
+  if (classicEvents) {
+    return classicEvents;
+  }
+
   const browserClient = getBrowserClient();
   const browser = await browserClient.launch();
   
@@ -403,9 +567,19 @@ export const getEventsFromHtmlOverview = async (
           }
         }
         
-        // Use Körperschaft as fallback location if no detail link and no location found
-        if (!detailUrl && !location && koerperschaft) {
-          location = koerperschaft;
+        const enhancedLocation = getLocationForOverviewEvent({
+          summary,
+          detailUrl,
+          location,
+          koerperschaft,
+          overviewUrl: url,
+        });
+
+        if (!location && enhancedLocation) {
+          location = enhancedLocation;
+          if (!detailUrl) {
+            console.log(`Extracted location from name: "${summary}" → "${location}"`);
+          }
         }
 
         // Generate stable UID using SILFDNR if available
@@ -415,22 +589,25 @@ export const getEventsFromHtmlOverview = async (
           const silfdnrMatch = detailUrl.match(/SILFDNR=(\d+)/);
           if (silfdnrMatch) {
             // Extract hostname and sanitize it for use in UID
-            const hostname = new URL(detailUrl).hostname.replace(/\./g, '-');
+            const hostname = new URL(detailUrl).hostname.replaceAll('.', '-');
             uid = `ALLRIS-${hostname}-${silfdnrMatch[1]}`;
           } else {
             // Fallback: use timestamp-based UID
-            uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replace(/[^a-zA-Z0-9]/g, "")}`;
+            uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replaceAll(/[^a-zA-Z0-9]/g, "")}`;
           }
         } else {
           // No detail URL, use timestamp-based UID
-          uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replace(/[^a-zA-Z0-9]/g, "")}`;
+          uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replaceAll(/[^a-zA-Z0-9]/g, "")}`;
         }
 
         // Determine URL and description
         const eventUrl = detailUrl || url;
-        const description = detailUrl 
-          ? "" 
-          : url; // For events without details, just provide the overview page URL
+        let description = "";
+        if (!detailUrl) {
+          // For events without detail links, create a description with location and overview URL
+          // For events without detail links, create a description with location and overview URL
+          description = `Location: ${location || "Not specified"}\n\nView all events at: ${url}`;
+        }
 
         if (summary && startDate) {
           allEvents.push({
