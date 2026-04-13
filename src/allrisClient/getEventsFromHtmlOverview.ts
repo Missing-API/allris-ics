@@ -64,88 +64,93 @@ export const getEventsFromHtmlOverview = async (
 
     // Optional: Try to set date filters if available (yesterday to 90 days in future)
     // Note: Not all Allris instances have date filters or they may be hidden/disabled
-    try {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 90);
-      
-      const formatDateISO = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`; // ISO format for type="date" inputs
-      };
-      
-      const formatDateGerman = (date: Date): string => {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}.${month}.${year}`; // German format for type="text" inputs
-      };
-      
-      // Wait a bit for any dynamic content to load
-      await page.waitForTimeout(1000);
-      
-      // Check if date filter panel is collapsed and needs to be expanded
-      // Look for the expand link specifically for "Zeitraum" (time period) panel
-      const expandLink = await page.$('a[data-simpletooltip-text="Zeitraum einblenden"]');
-      if (expandLink) {
-        console.log('Date filter panel (Zeitraum) is collapsed, expanding...');
-        await expandLink.click();
+    // DISABLED: Date filtering removed to fetch all available events
+    const APPLY_DATE_FILTER = false;
+    
+    if (APPLY_DATE_FILTER) {
+      try {
+        const formatDateISO = (date: Date): string => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`; // ISO format for type="date" inputs
+        };
         
-        // Wait for the date inputs to become visible after expansion
-        try {
-          await page.waitForSelector('input[type="date"], input#beginDateField', { timeout: 3000, state: 'visible' });
-          await page.waitForTimeout(500);
-          console.log('Date filter panel expanded successfully');
-        } catch (e) {
-          console.log('Date inputs did not become visible after expanding panel:', e);
+        const formatDateGerman = (date: Date): string => {
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}.${month}.${year}`; // German format for type="text" inputs
+        };
+        
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 90);
+      
+        // Wait a bit for any dynamic content to load
+        await page.waitForTimeout(1000);
+        
+        // Check if date filter panel is collapsed and needs to be expanded
+        // Look for the expand link specifically for "Zeitraum" (time period) panel
+        const expandLink = await page.$('a[data-simpletooltip-text="Zeitraum einblenden"]');
+        if (expandLink) {
+          console.log('Date filter panel (Zeitraum) is collapsed, expanding...');
+          await expandLink.click();
+          
+          // Wait for the date inputs to become visible after expansion
+          try {
+            await page.waitForSelector('input[type="date"], input#beginDateField', { timeout: 3000, state: 'visible' });
+            await page.waitForTimeout(500);
+            console.log('Date filter panel expanded successfully');
+          } catch (e) {
+            console.log('Date inputs did not become visible after expanding panel:', e);
+          }
         }
-      }
-      
-      // Try to find date input fields with multiple selector strategies
-      let beginDateInput = await page.$('input#beginDateField:visible, input[name*="beginDateField"]:visible');
-      let endDateInput = await page.$('input[name*="endDateField"]:visible');
-      
-      // If not found by ID/name, try to find all visible date inputs
-      if (!beginDateInput || !endDateInput) {
-        const dateInputs = await page.$$('input[type="date"]:visible');
-        console.log(`Found ${dateInputs.length} visible date inputs on page`);
-        if (dateInputs.length >= 2) {
-          beginDateInput = dateInputs[0];
-          endDateInput = dateInputs[1];
+        
+        // Try to find date input fields with multiple selector strategies
+        let beginDateInput = await page.$('input#beginDateField:visible, input[name*="beginDateField"]:visible');
+        let endDateInput = await page.$('input[name*="endDateField"]:visible');
+        
+        // If not found by ID/name, try to find all visible date inputs
+        if (!beginDateInput || !endDateInput) {
+          const dateInputs = await page.$$('input[type="date"]:visible');
+          console.log(`Found ${dateInputs.length} visible date inputs on page`);
+          if (dateInputs.length >= 2) {
+            beginDateInput = dateInputs[0];
+            endDateInput = dateInputs[1];
+          }
         }
+        
+        if (beginDateInput && endDateInput) {
+          // Check input type to use correct format
+          const beginType = await beginDateInput.getAttribute('type');
+          const isDateType = beginType === 'date';
+          
+          const startDateStr = isDateType ? formatDateISO(yesterday) : formatDateGerman(yesterday);
+          const endDateStr = isDateType ? formatDateISO(futureDate) : formatDateGerman(futureDate);
+          
+          console.log(`Attempting to apply date filter: ${startDateStr} to ${endDateStr} (type=${beginType})`);
+          
+          // Fill dates
+          await beginDateInput.click();
+          await beginDateInput.fill(startDateStr);
+          await endDateInput.click();
+          await endDateInput.fill(endDateStr);
+          
+          // Trigger form submission - try pressing Enter on the end date field
+          await endDateInput.press('Enter');
+          
+          // Wait for table to update
+          await page.waitForTimeout(3000);
+          console.log('Date filter applied successfully');
+        } else {
+          console.log('Date filter inputs not available on this page');
+        }
+      } catch (e) {
+        console.log('Date filter not available or could not be applied:', e);
+        // Continue without filter - not all instances support it
       }
-      
-      if (beginDateInput && endDateInput) {
-        // Check input type to use correct format
-        const beginType = await beginDateInput.getAttribute('type');
-        const isDateType = beginType === 'date';
-        
-        const startDateStr = isDateType ? formatDateISO(yesterday) : formatDateGerman(yesterday);
-        const endDateStr = isDateType ? formatDateISO(futureDate) : formatDateGerman(futureDate);
-        
-        console.log(`Attempting to apply date filter: ${startDateStr} to ${endDateStr} (type=${beginType})`);
-        
-        // Fill dates
-        await beginDateInput.click();
-        await beginDateInput.fill(startDateStr);
-        await endDateInput.click();
-        await endDateInput.fill(endDateStr);
-        
-        // Trigger form submission - try pressing Enter on the end date field
-        await endDateInput.press('Enter');
-        
-        // Wait for table to update
-        await page.waitForTimeout(3000);
-        console.log('Date filter applied successfully');
-      } else {
-        console.log('Date filter inputs not available on this page');
-      }
-    } catch (e) {
-      console.log('Date filter not available or could not be applied:', e);
-      // Continue without filter - not all instances support it
     }
 
     // Get first page HTML
@@ -155,8 +160,28 @@ export const getEventsFromHtmlOverview = async (
     // Parse pagination info to determine total pages
     // Format: "Zeige 1 bis 25 von 119"
     const pagingInfo = $("table tfoot .paging.info").first().text().trim();
-    const match = pagingInfo.match(/von\s+(\d+)/);
-    const totalItems = match ? parseInt(match[1]) : 0;
+    console.log("Paging info text:", pagingInfo);
+    
+    // Try alternative selectors if first one doesn't work
+    let totalItems = 0;
+    let match = pagingInfo.match(/von\s+(\d+)/);
+    if (!match) {
+      // Try alternative format or selector
+      const allPagingElements = $(".paging.info, .dataTables_info, [class*='paging']");
+      console.log("Found paging elements:", allPagingElements.length);
+      allPagingElements.each((i, el) => {
+        const text = $(el).text().trim();
+        if (text) {
+          console.log(`Paging element ${i}: "${text}"`);
+          const m = text.match(/von\s+(\d+)/);
+          if (m && !match) {
+            match = m;
+          }
+        }
+      });
+    }
+    
+    totalItems = match ? parseInt(match[1]) : 0;
     
     // Count items per page from the first page
     const itemsOnPage = $("table.dataTable tbody tr").length;
@@ -168,24 +193,68 @@ export const getEventsFromHtmlOverview = async (
     const allPagesData: string[] = [data];
     
     for (let pageNum = 2; pageNum <= totalPages; pageNum++) {
-      // Click the pagination button for the next page
-      const clickSelector = `.goto button span:text("${pageNum}")`;
-      
-      // Wait for the click target to appear
-      await page.waitForSelector(clickSelector, { timeout: 30000 });
+      try {
+        // Click the pagination button for the next page
+        // Try multiple selector strategies as different Allris instances have different pagination markup
+        
+        let clicked = false;
+        
+        // Strategy 1: Use Playwright locator with :has-text for robust text matching
+        const pageButton = page.locator(`.goto button, .goto a`).filter({ hasText: pageNum.toString() });
+        if (await pageButton.count() > 0) {
+          console.log(`Clicking page ${pageNum} using .goto button selector`);
+          await pageButton.first().click({ force: true });
+          clicked = true;
+        }
+        
+        // Strategy 2: If that doesn't work, try looking for span with page number inside button
+        if (!clicked) {
+          const spanInButton = page.locator(`.goto button:has(span:text("${pageNum}")) , .goto button:has(span:has-text("${pageNum}"))`);
+          if (await spanInButton.count() > 0) {
+            console.log(`Clicking page ${pageNum} using button>span selector`);
+            await spanInButton.first().click({ force: true });
+            clicked = true;
+          }
+        }
+        
+        // Strategy 3: Try link elements
+        if (!clicked) {
+          const pageLink = page.locator(`a:has-text("${pageNum}")`);
+          if (await pageLink.count() > 0) {
+            console.log(`Clicking page ${pageNum} using link selector`);
+            await pageLink.first().click({ force: true });
+            clicked = true;
+          }
+        }
+        
+        if (!clicked) {
+          console.warn(`Could not find pagination button for page ${pageNum}`);
+          break; // Stop pagination if we can't find the button
+        }
 
-      // Click the element with force option to bypass overlays
-      await page.click(clickSelector, { force: true });
+        // Wait for the table to update with new content
+        // Look for rows that contain different data than before
+        try {
+          await page.waitForFunction(
+            () => document.querySelectorAll('table.dataTable tbody tr').length > 0,
+            { timeout: 30000 }
+          );
+        } catch (e) {
+          console.warn(`Timeout waiting for table on page ${pageNum}`);
+        }
 
-      // Wait for the table to update
-      await page.waitForSelector("table.dataTable", { timeout: 30000 });
+        // Wait a bit for any dynamic content to fully load
+        await page.waitForTimeout(1500);
 
-      // Wait a bit for any dynamic content to load
-      await page.waitForTimeout(1000);
-
-      // Get the HTML content
-      const pageData = await page.content();
-      allPagesData.push(pageData);
+        // Get the HTML content
+        const pageData = await page.content();
+        allPagesData.push(pageData);
+        
+        console.log(`Successfully loaded page ${pageNum}`);
+      } catch (error) {
+        console.error(`Error loading page ${pageNum}:`, error);
+        break; // Stop pagination on error
+      }
     }
 
     const allEvents: OverviewEvent[] = [];
