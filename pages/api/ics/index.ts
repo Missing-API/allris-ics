@@ -286,6 +286,9 @@ export default async function handler(
       return getStartTime(a) - getStartTime(b);
     });
 
+    const escapeIcsHeaderValue = (value: string): string =>
+      value.replace(/\\/g, "\\\\").replace(/\r?\n/g, " ").trim();
+
     // create ics format
     const icsBody = ics.createEvents(enhancedEvents);
     
@@ -295,11 +298,30 @@ export default async function handler(
     let icsString = icsBody.value;
     
     if (icsString) {
-      // Add global timezone and calendar name definitions
-      icsString = icsString.replace(
-        'VERSION:2.0',
-        `VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin\r\nX-WR-CALNAME:${organzizerName}`
-      );
+      const safeCalName = escapeIcsHeaderValue(organzizerName || "Allris");
+
+      // Upsert global timezone and calendar name definitions
+      if (/\r?\nX-WR-TIMEZONE:/.test(icsString)) {
+        icsString = icsString.replace(/(\r?\n)X-WR-TIMEZONE:[^\r\n]*/,
+          `$1X-WR-TIMEZONE:Europe/Berlin`
+        );
+      } else {
+        icsString = icsString.replace(
+          'VERSION:2.0',
+          `VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin`
+        );
+      }
+
+      if (/\r?\nX-WR-CALNAME:/.test(icsString)) {
+        icsString = icsString.replace(/(\r?\n)X-WR-CALNAME:[^\r\n]*/,
+          `$1X-WR-CALNAME:${safeCalName}`
+        );
+      } else {
+        icsString = icsString.replace(
+          /VERSION:2\.0\r?\nX-WR-TIMEZONE:Europe\/Berlin/,
+          `VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin\r\nX-WR-CALNAME:${safeCalName}`
+        );
+      }
       
       // Add TZID to events
       // Replace DTSTART: with DTSTART;TZID=Europe/Berlin:
