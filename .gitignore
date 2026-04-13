@@ -4,3 +4,4 @@ node_modules
 *.log
 docs/allris-systems-to-add.md
 reports/
+test-results/.last-run.json
