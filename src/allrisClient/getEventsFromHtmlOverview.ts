@@ -151,16 +151,12 @@ const getEventsFromClassicHtmlOverview = async (
       end = new Date(start.getTime() + 60 * 60 * 1000);
     }
 
-    const rawLocation = cells
-      .last()
-      .text()
-      .replaceAll("\u00a0", " ")
-      .replaceAll(/\s+/g, " ")
-      .trim();
     const location = getLocationForOverviewEvent({
       summary,
       detailUrl,
-      location: rawLocation,
+      // Do not trust location text from overview tables.
+      // It can contain non-location values (e.g. Bearbeiter names).
+      location: "",
       koerperschaft: "",
       overviewUrl: url,
     });
@@ -553,29 +549,28 @@ export const getEventsFromHtmlOverview = async (
           ? (detailLink.startsWith("http") ? detailLink : new URL(detailLink, url).href)
           : "";
 
-        // Extract location if present (some instances don't have a location column)
-        // Look for a cell that's not the Rang (ranking) column which contains percentages
+        // Do not read location from overview table columns because some
+        // instances expose non-location values there (e.g. Bearbeiter names).
         let location = "";
         let koerperschaft = ""; // Organization/body name as fallback
         const cells = $row.find("td");
         if (cells.length >= 5) {
-          // Try to find location and Körperschaft columns by checking data-title attribute
+          // Keep Körperschaft as optional fallback hint.
           for (let cellIndex = 3; cellIndex < cells.length; cellIndex++) {
             const cellText = cells.eq(cellIndex).text().trim();
-            const dataTitle = cells.eq(cellIndex).attr("data-title");
+            const dataTitle = cells.eq(cellIndex).attr("data-title") || "";
+            const normalizedTitle = dataTitle.trim().toLowerCase();
             
             // Skip empty cells, Rang column, and AN (Anwesenheit) column
             if (!cellText || cellText.match(/^\d+%/)) {
               continue;
             }
+
+            const isBodyColumn = ["körperschaft", "koerperschaft", "gremium"].includes(normalizedTitle);
             
             // Check for Körperschaft column
-            if (dataTitle === "Körperschaft" || dataTitle === "Gremium") {
+            if (isBodyColumn) {
               koerperschaft = cellText;
-            } 
-            // Location column (but not Rang or AN)
-            else if (dataTitle !== "Rang" && dataTitle !== "AN" && !location) {
-              location = cellText;
             }
           }
         }

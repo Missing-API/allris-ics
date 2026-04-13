@@ -70,9 +70,12 @@ const normalizeTailAfterArticle = (tail: string): string => {
 
 const extractLocationFromName = (summary: string): string => {
   const normalized = summary.replaceAll(/\s+/g, " ").trim();
-  if (!/^Sitzung\b/i.test(normalized)) return "";
+  if (!/\bSitzung\b/i.test(normalized)) return "";
 
-  const cleaned = normalized.replace(/[.,;:]$/, "");
+  const sitzungIndex = normalized.toLowerCase().indexOf("sitzung");
+  const summaryFromSitzung = sitzungIndex >= 0 ? normalized.slice(sitzungIndex) : normalized;
+
+  const cleaned = summaryFromSitzung.replace(/[.,;:]$/, "");
   const words = cleaned.split(" ").filter(Boolean);
   if (words.length < 2) return "";
 

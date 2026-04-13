@@ -97,6 +97,18 @@ describe("getLocationForOverviewEvent", () => {
     ).toBe("Dargun, Mecklenburgische Seenplatte, Mecklenburg-Vorpommern, Germany");
   });
 
+  test("extracts location from prefixed summary wording", () => {
+    expect(
+      getLocationForOverviewEvent({
+        summary: "ordentliche Sitzung des Finanzausschusses Leizen",
+        detailUrl: "",
+        location: "",
+        koerperschaft: "",
+        overviewUrl: "https://roebelmueritz.sitzung-mv.de/public/si018",
+      })
+    ).toBe("Leizen, Mecklenburgische Seenplatte, Mecklenburg-Vorpommern, Germany");
+  });
+
   test("extracts place from gemeinde summary with repeated article", () => {
     expect(
       getLocationForOverviewEvent({
