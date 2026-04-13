@@ -8,33 +8,94 @@ export interface OverviewLocationInput {
 
 import { getLocationContextFromUrl } from "./getLocationContextFromUrl";
 
+const augmentGenericLocationWithContext = (
+  rawLocation: string,
+  overviewUrl: string
+): string => {
+  const location = rawLocation.trim();
+  if (!location) return "";
+
+  // Keep explicit, already contextualized addresses untouched.
+  if (location.includes(",")) return location;
+
+  // Generic municipality names are often ambiguous for geocoding.
+  const isGenericMunicipality = /^(Gemeinde|Stadt|Amt)\b/i.test(location);
+
+  // Also enrich plain place names like "Buchholz" when they look like an
+  // administrative place label.
+  const looksLikePlainPlaceName =
+    /^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]*(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]*){0,3}$/.test(location);
+
+  if (!isGenericMunicipality && !looksLikePlainPlaceName) return location;
+
+  const [county = "", state = ""] = getLocationContextFromUrl(overviewUrl);
+  return [location, county, state].filter(Boolean).join(", ");
+};
+
+const isBodyToken = (token: string): boolean => {
+  const t = token.toLowerCase();
+  return (
+    t.includes("ausschuss") ||
+    t.includes("auschuss") ||
+    t.includes("vertretung") ||
+    t.includes("beirat") ||
+    t.includes("vorstand") ||
+    t.includes("gremium") ||
+    t === "rat" ||
+    t === "rates" ||
+    t === "ortsrat" ||
+    t === "ortsrates" ||
+    t === "amtsausschuss" ||
+    t === "amtsausschusses"
+  );
+};
+
+const normalizeTailAfterArticle = (tail: string): string => {
+  const tailTokens = tail.split(" ").filter(Boolean);
+
+  while (tailTokens.length > 1 && isBodyToken(tailTokens[0])) {
+    tailTokens.shift();
+  }
+
+  if (tailTokens.length === 2 && isBodyToken(tailTokens[1])) {
+    return "";
+  }
+
+  if (tailTokens.length === 2 && /^(stadt|gemeinde)$/i.test(tailTokens[0])) {
+    tailTokens.shift();
+  }
+
+  return tailTokens.join(" ").replace(/^Amtes\b/i, "Amt").trim();
+};
+
 const extractLocationFromName = (summary: string): string => {
-  let regexMatch = /Sitzung des Ortsrates\s+([^\s]+(?:\s+[^\s]+)*?)(?:\s*$|(?=\s+der))/i.exec(summary);
-  if (regexMatch?.[1]) return regexMatch[1].trim();
+  const normalized = summary.replaceAll(/\s+/g, " ").trim();
+  if (!/^Sitzung\b/i.test(normalized)) return "";
 
-  regexMatch = /der Stadt\s+([^\s]+(?:\s+[^\s]+)*?)(?:\s*$)/i.exec(summary);
-  if (regexMatch?.[1]) return regexMatch[1].trim();
+  const cleaned = normalized.replace(/[.,;:]$/, "");
+  const words = cleaned.split(" ").filter(Boolean);
+  if (words.length < 2) return "";
 
-  regexMatch = /Sitzung der\s+([^\s]+(?:\s+[^\s]+)*?)(?:\s*$)/i.exec(summary);
-  if (regexMatch?.[1] && !regexMatch[1].toLowerCase().includes("ausschuss")) {
-    return regexMatch[1].trim();
+  const last = words.at(-1) || "";
+
+  // e.g. "... Röbel/Müritz"
+  if (last.includes("/")) return last;
+
+  // Generic: take the tail after the last "der/des", e.g.
+  // "... der Reuterstadt Stavenhagen" -> "Reuterstadt Stavenhagen".
+  let tailAfterArticle = /.*\b(?:der|des)\s+(.+?)\s*$/i.exec(cleaned)?.[1]?.trim() || "";
+  if (tailAfterArticle) {
+    tailAfterArticle = normalizeTailAfterArticle(tailAfterArticle);
+    if (tailAfterArticle) return tailAfterArticle;
   }
 
-  regexMatch = /([^\s]+(?:\s+[^\s]+)*?)\s+(?:Ausschuss|ausschuss|Gremium)/i.exec(summary);
-  if (regexMatch?.[1]) {
-    const extracted = regexMatch[1].trim();
-    if (extracted.toLowerCase().includes("stadt")) {
-      const cityMatch = /Stadt\s+([A-Z][^\s]+)/.exec(extracted);
-      if (cityMatch?.[1]) return cityMatch[1];
-    }
-
-    // Avoid false positives like "Sitzung" for unknown committee names.
-    // Only extract a city if the summary explicitly contains "der/des Stadt <name>".
-    const cityMatch = /\b(?:der|des)\s+Stadt\s+([^\s]+(?:\s+[^\s]+)*)/i.exec(summary);
-    if (cityMatch?.[1]) return cityMatch[1].trim();
+  // Avoid returning body terms as locations.
+  if (/^(gremium|gremiums|ausschuss|ausschusses|beirat|beirates|vorstand|vorstandes|rat|rates|ortsrat|ortsrates|vertretung|stadtvertretung|gemeindevertretung)$/i.test(last)) {
+    return "";
   }
 
-  return "";
+  // Fall back to one-word suffix location.
+  return last;
 };
 
 export const getLocationForOverviewEvent = ({
@@ -45,7 +106,7 @@ export const getLocationForOverviewEvent = ({
   overviewUrl,
 }: OverviewLocationInput): string => {
   if (location) {
-    return location;
+    return augmentGenericLocationWithContext(location, overviewUrl);
   }
 
   if (!detailUrl && koerperschaft) {
