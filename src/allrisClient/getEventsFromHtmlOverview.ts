@@ -47,19 +47,63 @@ export const getEventsFromHtmlOverview = async (
       timeout: 20000,
     });
 
+    // Dismiss cookie dialog if present - MUST be done before other interactions
+    // The Allris cookie dialog uses ID #cookieMessageBtn with display: none toggle
+    try {
+      console.log("Attempting to dismiss cookie modal...");
+      
+      // Wait a moment for cookie modal to render
+      await page.waitForTimeout(500);
+      
+      // Try the most specific selectors first (matching Allris structure)
+      const cookieSelectors = [
+        // Allris standard: button with id cookieMessageBtn
+        '#cookieMessageBtn',
+        // Fallback selectors for other Allris instances
+        '#cookieDialog button',
+        'button#cookieMessageBtn',
+        '[role="dialog"] button',
+        '.cookie-message button',
+      ];
+      
+      let cookieDismissed = false;
+      for (const selector of cookieSelectors) {
+        try {
+          const buttons = page.locator(selector);
+          const count = await buttons.count();
+          if (count > 0) {
+            console.log(`Found cookie dismiss button with selector: ${selector}`);
+            // Use the first matching button
+            await buttons.first().click({ force: true, timeout: 5000 });
+            console.log("Cookie modal dismissed successfully");
+            
+            // Wait for any navigation or modal to close
+            await page.waitForTimeout(500);
+            cookieDismissed = true;
+            break;
+          }
+        } catch (e) {
+          // Selector didn't work, try next one
+          continue;
+        }
+      }
+      
+      if (!cookieDismissed) {
+        console.log("No cookie dismiss button found - proceeding anyway");
+      }
+    } catch (error) {
+      console.log("Cookie modal handling encountered non-blocking error:", error);
+      // Continue even if cookie handling fails - it's not critical
+    }
+
     // Wait for the table to load (JavaScript rendered)
     // Give it a bit more time since we're using domcontentloaded
-    await page.waitForSelector("table.dataTable", { timeout: 25000 });
-
-    // Dismiss cookie dialog if present
     try {
-      const cookieButton = await page.$("#cookieDialog button, .cookie-message button");
-      if (cookieButton) {
-        await cookieButton.click();
-        await page.waitForTimeout(500);
-      }
-    } catch (e) {
-      // Cookie dialog not found or already dismissed, continue
+      await page.waitForSelector("table.dataTable", { timeout: 25000 });
+      console.log("Table loaded successfully");
+    } catch (error) {
+      console.error("Failed to load table - page might have closed or navigation occurred:", error);
+      throw new Error(`Failed to load Allris table from ${url}. The page may have navigated or closed unexpectedly, possibly due to cookie modal interaction.`);
     }
 
     // Optional: Try to set date filters if available (yesterday to 90 days in future)
@@ -169,7 +213,7 @@ export const getEventsFromHtmlOverview = async (
       // Try alternative format or selector
       const allPagingElements = $(".paging.info, .dataTables_info, [class*='paging']");
       console.log("Found paging elements:", allPagingElements.length);
-      allPagingElements.each((i, el) => {
+      allPagingElements.each((i: number, el: any) => {
         const text = $(el).text().trim();
         if (text) {
           console.log(`Paging element ${i}: "${text}"`);
