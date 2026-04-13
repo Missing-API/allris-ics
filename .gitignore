@@ -2,3 +2,5 @@ node_modules
 .next
 .env*
 *.log
+docs/allris-systems-to-add.md
+reports/

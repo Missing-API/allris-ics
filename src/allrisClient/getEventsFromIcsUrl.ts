@@ -1,7 +1,15 @@
 import axios from "axios";
+import http from "node:http";
+import https from "node:https";
 import ical from "node-ical";
 import { trimHtml } from "./cleanHtml";
 import { getUrlFromText } from "./getUrlFromText";
+
+// Shared axios instance with keep-alive for connection reuse
+const axiosClient = axios.create({
+  httpAgent: new http.Agent({ keepAlive: true }),
+  httpsAgent: new https.Agent({ keepAlive: true }),
+});
 
 export interface ICal {
   calendar: any;
@@ -11,7 +19,7 @@ export interface ICal {
 export const getEventsFromIcsUrl = async (icsUrl: string): Promise<ICal> => {
   // query ics feed
   try {
-    const { data } = await axios.get<any>(icsUrl);
+    const { data } = await axiosClient.get<any>(icsUrl);
 
     const icsEvents = ical.sync.parseICS(data);
 

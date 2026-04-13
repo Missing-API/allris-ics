@@ -28,8 +28,10 @@ const extractLocationFromName = (summary: string): string => {
       if (cityMatch?.[1]) return cityMatch[1];
     }
 
-    const cityMatch = /(?:Dargun|dargun|[A-Z][a-z]+)\b/.exec(summary);
-    if (cityMatch?.[0]) return cityMatch[0];
+    // Avoid false positives like "Sitzung" for unknown committee names.
+    // Only extract a city if the summary explicitly contains "der/des Stadt <name>".
+    const cityMatch = /\b(?:der|des)\s+Stadt\s+([^\s]+(?:\s+[^\s]+)*)/i.exec(summary);
+    if (cityMatch?.[1]) return cityMatch[1].trim();
   }
 
   return "";

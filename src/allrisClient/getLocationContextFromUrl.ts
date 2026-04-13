@@ -8,6 +8,7 @@ interface DomainEntry {
 }
 
 interface SystemEntry {
+  name?: string;
   county?: string;
   state?: string;
   country?: string;
@@ -29,8 +30,9 @@ const loadYaml = (): AllrisSystemsYaml => {
 const { domains = {}, systems = {} } = loadYaml();
 
 const resolveState = (hostname: string): string => {
+  const system = systems[hostname];
   // System-level override takes precedence
-  if (systems[hostname]?.state) return systems[hostname].state;
+  if (system?.state) return system.state;
   // Fall back to domain-level state
   for (const [domain, entry] of Object.entries(domains)) {
     if (hostname.endsWith(`.${domain}`) || hostname === domain) {
@@ -41,7 +43,8 @@ const resolveState = (hostname: string): string => {
 };
 
 const resolveCountry = (hostname: string): string => {
-  if (systems[hostname]?.country) return systems[hostname].country;
+  const system = systems[hostname];
+  if (system?.country) return system.country;
   for (const [domain, entry] of Object.entries(domains)) {
     if (hostname.endsWith(`.${domain}`) || hostname === domain) {
       return entry.country ?? "";
@@ -60,5 +63,14 @@ export const getLocationContextFromUrl = (url: string): string[] => {
     return [county, state, country].filter(Boolean);
   } catch {
     return [];
+  }
+};
+
+export const getNameFromUrl = (url: string): string => {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return systems[hostname]?.name ?? "";
+  } catch {
+    return "";
   }
 };

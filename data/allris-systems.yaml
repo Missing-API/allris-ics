@@ -22,69 +22,86 @@ domains:
 
 systems:
   altentreptow.sitzung-mv.de:
+    name: Amt Treptower Tollensewinkel
     county: Mecklenburgische Seenplatte
     publicUrl: https://altentreptow.sitzung-mv.de/public/si018
 
   amt-demmin-land.sitzung-mv.de:
+    name: Amt Demmin-Land
     county: Mecklenburgische Seenplatte
     publicUrl: https://amt-demmin-land.sitzung-mv.de/public/si018
 
   amtneverin.sitzung-mv.de:
+    name: Amt Neverin
     county: Mecklenburgische Seenplatte
     publicUrl: https://amtneverin.sitzung-mv.de/public/si018
 
   amt-slw.sitzung-mv.de:
+    name: Amt Seenlandschaft Waren
     county: Mecklenburgische Seenplatte
     publicUrl: https://amt-slw.sitzung-mv.de/public/si018
 
   amt-stargarder-land.sitzung-mv.de:
+    name: Amt Stargarder Land
     county: Mecklenburgische Seenplatte
     publicUrl: https://amt-stargarder-land.sitzung-mv.de/public/si018
 
   dargun.sitzung-mv.de:
+    name: Stadt Dargun
     county: Mecklenburgische Seenplatte
     publicUrl: https://dargun.sitzung-mv.de/public/si018
 
   demmin.sitzung-online.de:
+    name: Stadt Demmin
     county: Mecklenburgische Seenplatte
     publicUrl: https://www.demmin.sitzung-online.de/bi/si010_e.asp
 
   eggesin.sitzung-mv.de:
+    name: Amt Am Stettiner Haff
     county: Vorpommern-Greifswald
     publicUrl: https://eggesin.sitzung-mv.de/public/si018
 
   kleinseenplatte.sitzung-mv.de:
+    name: Amt Mecklenburgische Kleinseenplatte
     county: Mecklenburgische Seenplatte
     publicUrl: https://kleinseenplatte.sitzung-mv.de/public/si018
 
   malchin.sitzung-mv.de:
+    name: Amt Malchin am Kummerower See
     county: Mecklenburgische Seenplatte
     publicUrl: https://malchin.sitzung-mv.de/public/si018
 
   neustrelitz.sitzung-mv.de:
+    name: Stadt Neustrelitz
     county: Mecklenburgische Seenplatte
     publicUrl: https://neustrelitz.sitzung-mv.de/public/si018
 
   neverin.sitzung-mv.de:
+    name: Amt Neverin
     county: Mecklenburgische Seenplatte
     publicUrl: https://neverin.sitzung-mv.de/public/si018
 
   roebelmueritz.sitzung-mv.de:
+    name: Amt Röbel-Müritz
     county: Mecklenburgische Seenplatte
     publicUrl: https://roebelmueritz.sitzung-mv.de/public/si018
 
   stavenhagen.sitzung-mv.de:
+    name: Amt Stavenhagen
     county: Mecklenburgische Seenplatte
     publicUrl: https://stavenhagen.sitzung-mv.de/public/si018
 
   torgelow.sitzung-mv.de:
+    name: Amt Torgelow-Ferdinandshof
     county: Vorpommern-Greifswald
     publicUrl: https://torgelow.sitzung-mv.de/public/si018
 
   usedomnord.sitzung-mv.de:
+    name: Amt Usedom-Nord
     county: Vorpommern-Greifswald
     publicUrl: https://usedomnord.sitzung-mv.de/public/si018
 
   zuessow.sitzung-mv.de:
+    name: Amt Züssow
     county: Vorpommern-Greifswald
     publicUrl: https://zuessow.sitzung-mv.de/public/si018

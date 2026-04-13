@@ -8,6 +8,8 @@ import { getHtmlFromUrl } from "../../../src/allrisClient/getHtmlFromUrl";
 import { getEventsFromHtmlOverview, OverviewEvent } from "../../../src/allrisClient/getEventsFromHtmlOverview";
 import { closeBrowserClient } from "../../../src/clients/browserClient";
 import { mapIncomingEventToIcsEvent } from "../../../src/allrisClient/mapIncomingEventToIcsEvent";
+import { getLocationForOverviewEvent } from "../../../src/allrisClient/getLocationForOverviewEvent";
+import { getNameFromUrl } from "../../../src/allrisClient/getLocationContextFromUrl";
 import { IcsEvent } from "../../../src/types/icsEvent";
 import { htmlToData } from "@schafevormfenster/data-text-mapper/src/htmlToData";
 import { dataToText } from "@schafevormfenster/data-text-mapper/src/dataToText";
@@ -95,6 +97,9 @@ export default async function handler(
       } catch (e) {
         organzizerName = "Allris";
       }
+      // Override with human-readable name from YAML if available
+      const yamlName = getNameFromUrl(htmloverviewurl as string);
+      if (yamlName) organzizerName = yamlName;
     } 
     // Handle ICS feed URL
     else if (feedurl) {
@@ -103,17 +108,18 @@ export default async function handler(
       organzizerName = icsEvents.calendar["WR-CALNAME"] || "Allris";
       calendarProdId = icsEvents.calendar["PRODID"] || icsEvents.calendar["prodid"] || organzizerName;
       calendarDescription = icsEvents.calendar["WR-CALDESC"] || "Allris";
+      // Override with human-readable name from YAML if available
+      const yamlName = getNameFromUrl(feedurl as string);
+      if (yamlName) organzizerName = yamlName;
     }
 
     // Helper function to delay execution
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     
-    // Process events in batches with delays to avoid rate limiting
-    const batchSize = 7;
-    const delayBetweenBatches = 450; // 0.5 second
-    const delayBetweenRequests = 150; // 150ms between individual requests
+    // Process events sequentially with small delays to avoid stressing external systems
+    const delayBetweenRequests = 150; // ms between requests
     
-    let htmlContents: any[] = new Array();
+    const htmlContents = new Map<string, any>();
     const eventsToFetch = events.filter((event: any) => event?.url?.includes("SILFDNR"));
     
     // Extract referer URL from either htmloverviewurl or feedurl
@@ -127,27 +133,17 @@ export default async function handler(
       }
     }
     
-    for (let i = 0; i < eventsToFetch.length; i += batchSize) {
-      const batch = eventsToFetch.slice(i, i + batchSize);
-      
-      // Process batch sequentially with small delays
-      for (const event of batch) {
-        try {
-          const htmlResult = await getHtmlFromUrl(event.url, refererUrl);
-          htmlContents[event.uid] = htmlResult;
-        } catch (error) {
-          console.error(`Failed to fetch ${event.url}:`, error);
-          htmlContents[event.uid] = null;
-        }
-        
-        // Small delay between individual requests
-        await delay(delayBetweenRequests);
+    for (const event of eventsToFetch) {
+      try {
+        const htmlResult = await getHtmlFromUrl(event.url, refererUrl);
+        htmlContents.set(event.uid, htmlResult);
+      } catch (error) {
+        console.error(`Failed to fetch ${event.url}:`, error);
+        htmlContents.set(event.uid, null);
       }
       
-      // Longer delay between batches
-      if (i + batchSize < eventsToFetch.length) {
-        await delay(delayBetweenBatches);
-      }
+      // Small delay between requests to be gentle on external systems
+      await delay(delayBetweenRequests);
     }
 
     // Helper to convert Date to Berlin time array [year, month, day, hour, minute]
@@ -180,37 +176,37 @@ export default async function handler(
 
     // add html content to events
     const enhancedEvents: IcsEvent[] = events.map((event: any) => {
-      const htmlResult = htmlContents[event.uid];
-      const $ = cheerio.load(htmlResult?.html || "");
+      const htmlResult = htmlContents.get(event.uid);
+      const htmlContent = htmlResult?.html || "";
+      const $ = cheerio.load(htmlContent);
       const locationFromHtml: string = $("#location").text();
       const titleFromHtml: string = htmlResult?.title || "";
       const icsLocationFromHtml: string = htmlResult?.location || "";
 
       // Convert HTML to text by extracting text content from each element
       let plainTextDescription = event.description;
-      if (htmlResult?.html) {
-        const $desc = cheerio.load(htmlResult.html);
-        const textData = htmlToData(htmlResult.html);
+      if (htmlContent) {
+        const textData = htmlToData(htmlContent);
         if (textData) {
           // Extract text from the description HTML with proper formatting
           let descText = "";
           
-          // Process location
-          const location = $desc("#location").text().trim();
+          // Process location (reuse the same cheerio instance)
+          const location = $("#location").text().trim();
           if (location) {
             descText += location + "\n\n";
           }
           
           // Process table rows with proper line breaks
-          $desc("table tr").each((i: number, row: any) => {
-            const cells = $desc(row).find("td");
-            if (cells.length === 1 && $desc(cells[0]).attr("colspan")) {
+          $("table tr").each((i: number, row: any) => {
+            const cells = $(row).find("td");
+            if (cells.length === 1 && $(cells[0]).attr("colspan")) {
               // Section header
-              descText += "\n" + $desc(cells[0]).text().trim() + "\n";
+              descText += "\n" + $(cells[0]).text().trim() + "\n";
             } else if (cells.length === 2) {
               // Topic row: "Ö 1" + "Description"
-              const topicNum = $desc(cells[0]).text().trim();
-              const topicDesc = $desc(cells[1]).text().trim();
+              const topicNum = $(cells[0]).text().trim();
+              const topicDesc = $(cells[1]).text().trim();
               descText += topicNum + " " + topicDesc + "\n";
             }
           });
@@ -254,7 +250,14 @@ export default async function handler(
           method: "PUBLISH" as const,
         }),
         title: titleFromHtml || event.summary,
-        location: icsLocationFromHtml || locationFromHtml || event.location,
+        location: icsLocationFromHtml || locationFromHtml || event.location
+          || getLocationForOverviewEvent({
+            summary: titleFromHtml || event.summary,
+            detailUrl: event.url || "",
+            location: "",
+            koerperschaft: "",
+            overviewUrl: (feedurl || htmloverviewurl || "") as string,
+          }),
         description: plainTextDescription,
         htmlContent: htmlResult?.html || "",
         organizer: {
@@ -292,8 +295,11 @@ export default async function handler(
     let icsString = icsBody.value;
     
     if (icsString) {
-      // Add global timezone definition
-      icsString = icsString.replace('VERSION:2.0', 'VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin');
+      // Add global timezone and calendar name definitions
+      icsString = icsString.replace(
+        'VERSION:2.0',
+        `VERSION:2.0\r\nX-WR-TIMEZONE:Europe/Berlin\r\nX-WR-CALNAME:${organzizerName}`
+      );
       
       // Add TZID to events
       // Replace DTSTART: with DTSTART;TZID=Europe/Berlin:
@@ -302,8 +308,9 @@ export default async function handler(
       icsString = icsString.replace(/DTEND:/g, 'DTEND;TZID=Europe/Berlin:');
     }
 
-    // set content type header
-    res.setHeader("Content-Type", "text/calendar; charset=utf8");
+    // Serve calendar inline (not as attachment download).
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", "inline; filename=calendar.ics");
 
     // add cache header to allow cdn caching of responses
     const cacheMaxAge: string = process.env.CACHE_MAX_AGE || "86400"; // 1 day

@@ -1,6 +1,17 @@
 import axios, { AxiosRequestConfig } from "axios";
+import http from "node:http";
+import https from "node:https";
 import { cleanHtml, cleanHtmlTable } from "./cleanHtml";
 const cheerio = require("cheerio");
+
+// Shared axios instance with keep-alive for connection reuse
+const axiosClient = axios.create({
+  httpAgent: new http.Agent({ keepAlive: true }),
+  httpsAgent: new https.Agent({ keepAlive: true }),
+});
+
+// Cache detected Allris major version per hostname to skip version detection on subsequent requests
+const versionCache = new Map<string, string>();
 
 /**
  * Split up html functions based on Allris version
@@ -24,7 +35,7 @@ export const getHtmlFromUrl = async (url: string, referer?: string): Promise<Htm
     const urlObj = new URL(url);
     const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
     
-    // set options to properly decode iso-8859-1 from allris html
+    // set options to fetch as arraybuffer so we can re-decode encoding in-memory
     const options: AxiosRequestConfig = {
       method: "GET",
       url: url,
@@ -37,51 +48,55 @@ export const getHtmlFromUrl = async (url: string, referer?: string): Promise<Htm
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
       },
-      responseType: "text",
-      responseEncoding: "utf8",
+      responseType: "arraybuffer",
       decompress: true,
     };
 
-    // get pure data
-    const { data } = await axios.get<string>(url, options);
+    const hostname = urlObj.hostname;
+    const cachedVersion = versionCache.get(hostname);
 
-    // parse html
-    let $ = cheerio.load(data);
+    // If we already know this host uses latin1 (v3.9), fetch with the right encoding directly
+    const isKnownLatin1 = cachedVersion === "3.9";
+    if (isKnownLatin1) {
+      options.responseType = "text";
+      (options as any).responseEncoding = "latin1";
+    } else {
+      options.responseType = "arraybuffer";
+    }
 
-    // get allris version from metadata header
-    const metaDescription: string = $("meta[name=description]").attr("content");
-    const versionMatches: RegExpMatchArray | null =
-      metaDescription.match(/(\d\.\d\.\d)/);
-    const allrisVersion: string = versionMatches ? versionMatches[0] : "";
-    const allrisMajorVersion: string =
-      allrisVersion.split(".")[0] + "." + allrisVersion.split(".")[1];
+    const { data: rawData } = await axiosClient.get(url, options);
 
-    if (allrisMajorVersion === "3.9") {
-      // load detail page again with latin1 encoding
+    let $: any;
+    let allrisMajorVersion: string;
 
-      // set options to properly decode iso-8859-1 from allris html
-      const options: AxiosRequestConfig = {
-        method: "GET",
-        url: url,
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-          "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          "Referer": referer || baseUrl,
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "same-origin",
-        },
-        responseType: "text",
-        responseEncoding: "latin1",
-        decompress: true,
-      };
+    if (cachedVersion) {
+      // Version known — decode directly with correct encoding
+      allrisMajorVersion = cachedVersion;
+      if (isKnownLatin1) {
+        $ = cheerio.load(rawData as string);
+      } else {
+        $ = cheerio.load(new TextDecoder("utf-8").decode(rawData as ArrayBuffer));
+      }
+    } else {
+      // First request to this host — detect version from arraybuffer
+      const utf8Data = new TextDecoder("utf-8").decode(rawData as ArrayBuffer);
+      $ = cheerio.load(utf8Data);
 
-      // get pure data
-      const { data } = await axios.get<string>(url, options);
+      const metaDescription: string = $("meta[name=description]").attr("content");
+      const versionMatches: RegExpMatchArray | null =
+        metaDescription.match(/(\d\.\d\.\d)/);
+      const allrisVersion: string = versionMatches ? versionMatches[0] : "";
+      allrisMajorVersion =
+        allrisVersion.split(".")[0] + "." + allrisVersion.split(".")[1];
 
-      // parse html
-      $ = cheerio.load(data);
+      // Cache for subsequent requests to same host
+      versionCache.set(hostname, allrisMajorVersion);
+
+      if (allrisMajorVersion === "3.9") {
+        // Re-decode the same buffer as latin1 instead of making a second HTTP request
+        const latin1Data = new TextDecoder("iso-8859-1").decode(rawData as ArrayBuffer);
+        $ = cheerio.load(latin1Data);
+      }
     }
 
     // get title from html

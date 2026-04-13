@@ -23,7 +23,8 @@
     "test:watch": "jest --watch --maxWorkers=25% --testPathIgnorePatterns='.*\\.integration\\.ts$'",
     "test:ci": "jest --runInBand --testPathIgnorePatterns='.*\\.integration\\.ts$'",
     "test:integration": "jest --maxWorkers=25% --testMatch='**/*.integration.ts' --testTimeout=120000",
-    "test:all": "jest --maxWorkers=25%"
+    "test:all": "jest --maxWorkers=25%",
+    "test:e2e": "playwright test"
   },
   "engines": {
     "node": ">=22.x"

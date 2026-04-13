@@ -59,9 +59,9 @@ describe("getEventsFromHtmlOverview", () => {
     console.log(`Events with detail links: ${eventsWithDetails.length}`);
     console.log(`Events without detail links: ${eventsWithoutDetails.length}`);
     
-    // Check that events without detail links have the overview URL as description
+    // Check that events without detail links get the default fallback description
     if (eventsWithoutDetails.length > 0) {
-      expect(eventsWithoutDetails[0].description).toBe(url);
+      expect(eventsWithoutDetails[0].description).toBe("Diese Sitzung ist als Termin geplant, es liegen aber noch keine Details und keine Agenda vor.");
     }
   }, 30000); // 30 second timeout for network request
 

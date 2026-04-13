@@ -1,7 +1,15 @@
 import axios, { AxiosRequestConfig } from "axios";
+import http from "node:http";
+import https from "node:https";
 import { getBrowserClient } from "../clients/browserClient";
 import { getLocationForOverviewEvent } from "./getLocationForOverviewEvent";
 const cheerio = require("cheerio");
+
+// Shared axios instance with keep-alive for connection reuse
+const axiosClient = axios.create({
+  httpAgent: new http.Agent({ keepAlive: true }),
+  httpsAgent: new https.Agent({ keepAlive: true }),
+});
 
 export interface OverviewEvent {
   uid: string;
@@ -86,7 +94,7 @@ const getEventsFromClassicHtmlOverview = async (
     decompress: true,
   };
 
-  const { data } = await axios.get<string>(url, options);
+  const { data } = await axiosClient.get<string>(url, options);
   const $ = cheerio.load(data);
   const metaDescription = $("meta[name=description]").attr("content") || "";
   const fromValue =
@@ -440,19 +448,24 @@ export const getEventsFromHtmlOverview = async (
           break; // Stop pagination if we can't find the button
         }
 
-        // Wait for the table to update with new content
-        // Look for rows that contain different data than before
+        // Wait for actual content change — check that the first row's text differs from before
+        const prevFirstRowText = (() => {
+          const $prev = cheerio.load(allPagesData.at(-1));
+          return $prev("table.dataTable tbody tr").first().text().trim();
+        })();
+
         try {
           await page.waitForFunction(
-            () => document.querySelectorAll('table.dataTable tbody tr').length > 0,
+            (prev: string) => {
+              const firstRow = document.querySelector('table.dataTable tbody tr');
+              return firstRow && firstRow.textContent?.trim() !== prev;
+            },
+            prevFirstRowText,
             { timeout: 30000 }
           );
         } catch (e) {
-          console.warn(`Timeout waiting for table on page ${pageNum}`);
+          console.warn(`Timeout waiting for content change on page ${pageNum}`);
         }
-
-        // Wait a bit for any dynamic content to fully load
-        await page.waitForTimeout(1500);
 
         // Get the HTML content
         const pageData = await page.content();
@@ -600,13 +613,11 @@ export const getEventsFromHtmlOverview = async (
           uid = `ALLRIS-Overview-${startDate?.getTime() || i}-${summary.substring(0, 20).replaceAll(/[^a-zA-Z0-9]/g, "")}`;
         }
 
-        // Determine URL and description
+        // Use the overview URL as fallback "detail" URL when no dedicated detail page exists.
         const eventUrl = detailUrl || url;
         let description = "";
         if (!detailUrl) {
-          // For events without detail links, create a description with location and overview URL
-          // For events without detail links, create a description with location and overview URL
-          description = `Location: ${location || "Not specified"}\n\nView all events at: ${url}`;
+          description = "Diese Sitzung ist als Termin geplant, es liegen aber noch keine Details und keine Agenda vor.";
         }
 
         if (summary && startDate) {
