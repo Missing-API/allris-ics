@@ -250,14 +250,13 @@ export default async function handler(
           method: "PUBLISH" as const,
         }),
         title: titleFromHtml || event.summary,
-        location: icsLocationFromHtml || locationFromHtml || event.location
-          || getLocationForOverviewEvent({
-            summary: titleFromHtml || event.summary,
-            detailUrl: event.url || "",
-            location: "",
-            koerperschaft: "",
-            overviewUrl: (feedurl || htmloverviewurl || "") as string,
-          }),
+        location: getLocationForOverviewEvent({
+          summary: titleFromHtml || event.summary,
+          detailUrl: event.url || "",
+          location: icsLocationFromHtml || locationFromHtml || event.location || "",
+          koerperschaft: "",
+          overviewUrl: (feedurl || htmloverviewurl || "") as string,
+        }),
         description: plainTextDescription,
         htmlContent: htmlResult?.html || "",
         organizer: {

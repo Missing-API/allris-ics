@@ -264,4 +264,104 @@ describe("getLocationForOverviewEvent", () => {
       })
     ).toBe("");
   });
+
+  describe("systems with a locality (Gemeinde Lehre)", () => {
+    const lehreFeed = "https://www.lehre.sitzung-online.de/public/ics/SiKalAbo.ics";
+
+    test("appends the locality before county and state", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Wendhausen",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: "Gaststätte Zur Schönen Aussicht",
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe("Gaststätte Zur Schönen Aussicht, 38165 Lehre, Landkreis Helmstedt, Niedersachsen");
+    });
+
+    test("resolves the system with and without www", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Essehof",
+          detailUrl: "https://lehre.sitzung-online.de/public/si010",
+          location: "Dorfgemeinschaftshaus Essehof",
+          koerperschaft: "",
+          overviewUrl: "https://lehre.sitzung-online.de/public/ics/SiKalAbo.ics",
+        })
+      ).toBe("Dorfgemeinschaftshaus Essehof, 38165 Lehre, Landkreis Helmstedt, Niedersachsen");
+    });
+
+    test("keeps only the venue before a dash-separated room note", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Flechtorf",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: "Dorfgemeinschaftshaus Flechtorf - Gruppenraum -",
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe("Dorfgemeinschaftshaus Flechtorf, 38165 Lehre, Landkreis Helmstedt, Niedersachsen");
+    });
+
+    test("treats a name with lowercase articles as a plain place name", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Lehre",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: "Foyer der Börnekenhalle",
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe("Foyer der Börnekenhalle, 38165 Lehre, Landkreis Helmstedt, Niedersachsen");
+    });
+
+    test("treats a quoted venue name as a plain place name and keeps the quotes", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Wendhausen",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: 'Gaststätte "Zur Schönen Aussicht"',
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe('Gaststätte "Zur Schönen Aussicht", 38165 Lehre, Landkreis Helmstedt, Niedersachsen');
+    });
+
+    test("adds the locality to a place extracted from the summary", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Sitzung des Ortsrates Wendhausen",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: "",
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe("Wendhausen, 38165 Lehre, Landkreis Helmstedt, Niedersachsen, Germany");
+    });
+
+    test("leaves the location untouched when the system is unknown", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Ortsrat Flechtorf",
+          detailUrl: "https://ratsinfo.example.org/public/si010",
+          location: "Dorfgemeinschaftshaus Flechtorf - Gruppenraum -",
+          koerperschaft: "",
+          overviewUrl: "https://ratsinfo.example.org/public/ics/SiKalAbo.ics",
+        })
+      ).toBe("Dorfgemeinschaftshaus Flechtorf - Gruppenraum -");
+    });
+
+    test("keeps a location that already carries an address unchanged", () => {
+      expect(
+        getLocationForOverviewEvent({
+          summary: "Sitzung des Ortsrates Wendhausen",
+          detailUrl: "https://www.lehre.sitzung-online.de/public/si010",
+          location: "Im Oberdorf 11, 38165 Lehre",
+          koerperschaft: "",
+          overviewUrl: lehreFeed,
+        })
+      ).toBe("Im Oberdorf 11, 38165 Lehre");
+    });
+  });
 });

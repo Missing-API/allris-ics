@@ -9,6 +9,7 @@ interface DomainEntry {
 
 interface SystemEntry {
   name?: string;
+  locality?: string;
   county?: string;
   state?: string;
   country?: string;
@@ -29,8 +30,12 @@ const loadYaml = (): AllrisSystemsYaml => {
 // Load once at module initialisation (server startup)
 const { domains = {}, systems = {} } = loadYaml();
 
+// Allris hosts are reached both with and without "www.", so try both spellings.
+const findSystem = (hostname: string): SystemEntry | undefined =>
+  systems[hostname] ?? systems[hostname.replace(/^www\./, "")];
+
 const resolveState = (hostname: string): string => {
-  const system = systems[hostname];
+  const system = findSystem(hostname);
   // System-level override takes precedence
   if (system?.state) return system.state;
   // Fall back to domain-level state
@@ -43,7 +48,7 @@ const resolveState = (hostname: string): string => {
 };
 
 const resolveCountry = (hostname: string): string => {
-  const system = systems[hostname];
+  const system = findSystem(hostname);
   if (system?.country) return system.country;
   for (const [domain, entry] of Object.entries(domains)) {
     if (hostname.endsWith(`.${domain}`) || hostname === domain) {
@@ -56,7 +61,7 @@ const resolveCountry = (hostname: string): string => {
 export const getLocationContextFromUrl = (url: string): string[] => {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    const county = systems[hostname]?.county ?? "";
+    const county = findSystem(hostname)?.county ?? "";
     const state = resolveState(hostname);
     const country = resolveCountry(hostname);
 
@@ -69,7 +74,16 @@ export const getLocationContextFromUrl = (url: string): string[] => {
 export const getNameFromUrl = (url: string): string => {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    return systems[hostname]?.name ?? "";
+    return findSystem(hostname)?.name ?? "";
+  } catch {
+    return "";
+  }
+};
+
+export const getLocalityFromUrl = (url: string): string => {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return findSystem(hostname)?.locality ?? "";
   } catch {
     return "";
   }

@@ -7,6 +7,13 @@
 # systems:  Maps individual hostnames to their Landkreis (county).
 #           State and country are inherited from the matching domain entry.
 #           A system entry can also override state/country if needed.
+#           Hostnames are matched with and without a leading "www.".
+#
+# locality: Optional postal code and municipality, e.g. "38165 Lehre". It is
+#           appended to bare venue names before county and state, so that a
+#           venue like "Feuerwehrgerätehaus Beienrode" is geocoded inside the
+#           right municipality. Use it for single municipalities; leave it out
+#           for an Amt covering several municipalities.
 
 domains:
   sitzung-mv.de:
@@ -105,3 +112,11 @@ systems:
     name: Amt Züssow
     county: Vorpommern-Greifswald
     publicUrl: https://zuessow.sitzung-mv.de/public/si018
+
+  lehre.sitzung-online.de:
+    name: Gemeinde Lehre
+    locality: "38165 Lehre"
+    county: Landkreis Helmstedt
+    # sitzung-online.de defaults to Mecklenburg-Vorpommern
+    state: Niedersachsen
+    publicUrl: https://www.lehre.sitzung-online.de/public/si018

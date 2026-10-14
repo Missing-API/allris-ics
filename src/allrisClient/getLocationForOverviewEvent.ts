@@ -6,7 +6,43 @@ export interface OverviewLocationInput {
   overviewUrl: string;
 }
 
-import { getLocationContextFromUrl } from "./getLocationContextFromUrl";
+import {
+  getLocalityFromUrl,
+  getLocationContextFromUrl,
+} from "./getLocationContextFromUrl";
+
+const CONNECTOR_WORDS = new Set([
+  "am", "an", "auf", "bei", "beim", "das", "dem", "den", "der", "des", "die",
+  "für", "im", "in", "und", "vom", "von", "zu", "zum", "zur",
+]);
+
+const CAPITALIZED_WORD = /^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]*$/;
+
+const QUOTES = /["„“”‚‘’]/g;
+
+// Removes separators left at the edges, e.g. "Dorfgemeinschaftshaus Flechtorf - Gruppenraum -".
+const trimDanglingSeparators = (location: string): string =>
+  location.replace(/^[\s\-–—]+|[\s\-–—]+$/g, "");
+
+// Keeps the venue and drops a room note after a dash separator, which misleads
+// geocoding: "Dorfgemeinschaftshaus Flechtorf - Gruppenraum -" -> "Dorfgemeinschaftshaus Flechtorf".
+const venueName = (location: string): string =>
+  trimDanglingSeparators(location).split(/\s[-–—]\s/)[0].trim();
+
+// A venue or place label such as "Foyer der Börnekenhalle" or
+// 'Gaststätte "Zur Schönen Aussicht"': up to four capitalised words, optionally
+// joined by articles or prepositions, dash separators and quotes ignored.
+const looksLikePlainPlaceName = (location: string): boolean => {
+  const words = trimDanglingSeparators(location.replace(QUOTES, ""))
+    .replace(/\s[-–—]\s/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0 || !CAPITALIZED_WORD.test(words[0])) return false;
+
+  const nameWords = words.filter((word) => !CONNECTOR_WORDS.has(word.toLowerCase()));
+  if (nameWords.length === 0 || nameWords.length > 4) return false;
+  return nameWords.every((word) => CAPITALIZED_WORD.test(word));
+};
 
 const augmentGenericLocationWithContext = (
   rawLocation: string,
@@ -21,15 +57,13 @@ const augmentGenericLocationWithContext = (
   // Generic municipality names are often ambiguous for geocoding.
   const isGenericMunicipality = /^(Gemeinde|Stadt|Amt)\b/i.test(location);
 
-  // Also enrich plain place names like "Buchholz" when they look like an
-  // administrative place label.
-  const looksLikePlainPlaceName =
-    /^[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]*(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß.'-]*){0,3}$/.test(location);
+  if (!isGenericMunicipality && !looksLikePlainPlaceName(location)) return location;
 
-  if (!isGenericMunicipality && !looksLikePlainPlaceName) return location;
-
+  const locality = getLocalityFromUrl(overviewUrl);
   const [county = "", state = ""] = getLocationContextFromUrl(overviewUrl);
-  return [location, county, state].filter(Boolean).join(", ");
+  if (!locality && !county && !state) return location;
+
+  return [venueName(location), locality, county, state].filter(Boolean).join(", ");
 };
 
 const isBodyToken = (token: string): boolean => {
@@ -112,9 +146,11 @@ export const getLocationForOverviewEvent = ({
     return augmentGenericLocationWithContext(location, overviewUrl);
   }
 
+  const locality = getLocalityFromUrl(overviewUrl);
+
   if (!detailUrl && koerperschaft) {
     const contextParts = getLocationContextFromUrl(overviewUrl);
-    return [koerperschaft, ...contextParts].filter(Boolean).join(", ");
+    return [koerperschaft, locality, ...contextParts].filter(Boolean).join(", ");
   }
 
   const extractedLocation = extractLocationFromName(summary);
@@ -123,5 +159,5 @@ export const getLocationForOverviewEvent = ({
   }
 
   const contextParts = getLocationContextFromUrl(overviewUrl);
-  return [extractedLocation, ...contextParts].filter(Boolean).join(", ");
+  return [extractedLocation, locality, ...contextParts].filter(Boolean).join(", ");
 };
