@@ -53,12 +53,12 @@
     }
   },
   "dependencies": {
-    "@schafevormfenster/data-text-mapper": "^0.2.2",
+    "@schafevormfenster/data-text-mapper": "^0.2.3",
     "@sparticuz/chromium": "^153.0.0",
-    "axios": "^1.13.2",
-    "cheerio": "^1.1.2",
+    "axios": "^1.21.1",
+    "cheerio": "^1.2.0",
     "iconv": "^3.0.1",
-    "ics": "https://github.com/schafevormfenster/ics.git",
+    "ics": "github:schafevormfenster/ics#d2dd3e7441b09ca7f68e15e93dd795bb93fa7577",
     "js-yaml": "^5.5.0",
     "next": "^16.4.6",
     "next-swagger-doc": "^0.3.6",
@@ -67,7 +67,7 @@
     "re2": "^1.27.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "slugify": "^1.6.6",
+    "slugify": "^1.6.9",
     "swagger-ui-react": "^5.35.1",
     "url-regex-safe": "^4.0.0"
   },
