@@ -51,16 +51,16 @@ The `htmloverviewurl` parameter uses a headless browser (Playwright) to handle J
 
 ```bash
 # Install dependencies
-yarn install
+pnpm install
 
 # Run development server
-yarn dev
+pnpm dev
 
 # Build for production
-yarn build
+pnpm build
 
 # Run tests
-yarn test
+pnpm test
 ```
 
 ## Configuration
