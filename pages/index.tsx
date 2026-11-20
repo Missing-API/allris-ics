@@ -1,7 +1,7 @@
 import { GetStaticProps, InferGetStaticPropsType } from "next";
 import { createSwaggerSpec } from "next-swagger-doc";
-import packageJson from "../package.json" assert { type: "json" };
-import SwaggerUI, { SwaggerUIProps } from "swagger-ui-react";
+import packageJson from "../package.json" with { type: "json" };
+import SwaggerUI from "swagger-ui-react";
 import "swagger-ui-react/swagger-ui.css";
 
 function ApiDoc({ spec }: InferGetStaticPropsType<typeof getStaticProps>) {
@@ -18,7 +18,7 @@ export const getStaticProps: GetStaticProps = async () => {
         version: packageJson.version,
       },
     },
-  } as SwaggerUIProps);
+  });
 
   return {
     props: {
