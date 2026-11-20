@@ -17,7 +17,7 @@ export default defineConfig({
     baseURL: "http://localhost:3050",
   },
   webServer: {
-    command: "yarn dev",
+    command: "pnpm dev",
     url: "http://localhost:3050",
     reuseExistingServer: true,
     timeout: 120_000,
