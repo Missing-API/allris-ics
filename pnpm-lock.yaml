@@ -57,8 +57,8 @@ importers:
         specifier: ^5.35.1
         version: 5.35.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       url-regex-safe:
-        specifier: ^3.0.0
-        version: 3.0.0(re2@1.27.2)
+        specifier: ^4.0.0
+        version: 4.0.0(re2@1.27.2)
     devDependencies:
       '@playwright/test':
         specifier: ^1.57.0
@@ -3828,15 +3828,6 @@ packages:
 
   url-parse@1.5.10:
     resolution: {integrity: sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==}
-
-  url-regex-safe@3.0.0:
-    resolution: {integrity: sha512-+2U40NrcmtWFVjuxXVt9bGRw6c7/MgkGKN9xIfPrT/2RX0LTkkae6CCEDp93xqUN0UKm/rr821QnHd2dHQmN3A==}
-    engines: {node: '>= 10.12.0'}
-    peerDependencies:
-      re2: ^1.17.2
-    peerDependenciesMeta:
-      re2:
-        optional: true
 
   url-regex-safe@4.0.0:
     resolution: {integrity: sha512-BrnFCWKNFrFnRzKD66NtJqQepfJrUHNPvPxE5y5NSAhXBb4OlobQjt7907Jm4ItPiXaeX+dDWMkcnOd4jR9N8A==}
@@ -8735,13 +8726,6 @@ snapshots:
     dependencies:
       querystringify: 2.2.0
       requires-port: 1.0.0
-
-  url-regex-safe@3.0.0(re2@1.27.2):
-    dependencies:
-      ip-regex: 4.3.0
-      tlds: 1.261.0
-    optionalDependencies:
-      re2: 1.27.2
 
   url-regex-safe@4.0.0(re2@1.27.2):
     dependencies:
